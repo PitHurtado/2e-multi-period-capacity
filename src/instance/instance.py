@@ -22,7 +22,7 @@ class Instance:
         alpha: float,
         beta: float,
         type_of_flexibility: str,
-        scenarios: List[int],
+        id_scenarios: List[int],
         folder_path: str,
         periods: int = 12,
         M: int = 20,
@@ -39,19 +39,20 @@ class Instance:
         self.M = M
         self.folder_path = folder_path
 
-        self.scenarios = scenarios
+        self.id_scenarios = id_scenarios
         self.satellites = self.__read_satellites()
         self.vehicles = self.__read_vehicles()
         self.pixels_by_scenarios = {
             str(id_scenario): self.__read_pixels(id_scenario)
-            for id_scenario in scenarios
+            for id_scenario in id_scenarios
         }
         self.costs_by_scenarios = {
             str(id_scenario): self.__calculate_costs(
                 self.pixels_by_scenarios[str(id_scenario)]
             )
-            for id_scenario in scenarios
+            for id_scenario in id_scenarios
         }
+        self.periods = 12
 
     def __str__(self):
         return (
@@ -101,3 +102,15 @@ class Instance:
             logger.error(f"[calculate costs] File not found: {error}")
             raise error
         return costs
+
+    def get_scenarios(self) -> Dict:
+        """Get the scenarios."""
+        scenarios = {}
+        for id_scenario in self.id_scenarios:
+            scenarios[str(id_scenario)] = dict(
+                {
+                    "pixels": self.pixels_by_scenarios[str(id_scenario)],
+                    "costs": self.costs_by_scenarios[str(id_scenario)],
+                }
+            )
+        return scenarios
