@@ -3,6 +3,7 @@ import logging
 from typing import Any, Dict
 
 import gurobipy as gp
+import numpy as np
 from gurobipy import GRB, quicksum
 
 from classes import Satellite
@@ -76,16 +77,27 @@ class MasterProblem:
         self.model._Y = self.Y
         self.model._θ = self.θ
 
-        self.LB = dict(
-            [
-                (
-                    (t, n),
-                    0,
+        self.LB = self.__compute_lower_bound()
+
+    def __compute_lower_bound(self):
+        """Compute the lower bound for the second stage cost."""
+        LB = {}
+        logger.info("[MODEL] Computing lower bounds for the second stage cost")
+        for t in range(self.periods):
+            for n, scenario in self.scenarios.items():
+                LB[(t, n)] = np.sum(
+                    [
+                        np.min(
+                            [
+                                scenario["costs"]["satellite"][(s, k, t)]["total"]
+                                for s in self.satellites.keys()
+                            ]
+                        )
+                        for k in scenario["pixels"].keys()
+                    ]
                 )
-                for t in range(self.periods)
-                for n in scenarios.keys()
-            ]
-        )
+        logger.info(f"[MODEL] Lower bounds: {LB}")
+        return LB
 
     def __add_objective(
         self, satellites: Dict[str, Satellite], scenarios: Dict[str, Dict[str, Any]]
