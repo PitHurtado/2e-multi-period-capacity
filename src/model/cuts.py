@@ -2,7 +2,7 @@
 import logging
 import sys
 import time
-from typing import Dict
+from typing import Any, Dict, List
 
 import numpy as np
 from gurobipy import GRB, quicksum
@@ -20,16 +20,19 @@ logging.basicConfig(
 class Cuts:
     """Class to define the Cut Generator"""
 
-    def __init__(self, instance: Instance, period: int, scenario: Dict):
-        Cuts.SP = SubProblem(instance, period, scenario)
-        Cuts.instance: Instance = instance
-        Cuts.period: int = period
+    def __init__(self, instance: Instance):
+        Cuts.SPs: Dict[Any, SubProblem] = self.__create_subproblems(instance)
+        Cuts.periods: int = instance.periods
         Cuts.satellites: Dict[str, Satellite] = instance.satellites
         Cuts.vehicles: Dict[str, Vehicle] = instance.vehicles
 
-        Cuts.pixels: Dict[str, Pixel] = scenario["pixels"]
-        Cuts.costs: Dict = scenario["costs"]
-        Cuts.id_scenario: int = scenario["id"]
+        Cuts.pixels_by_scenario: Dict[
+            str, Dict[str, Pixel]
+        ] = instance.pixels_by_scenarios
+        Cuts.costs_by_scenario: Dict[
+            str, Dict[str, Dict[str, Dict[str, float]]]
+        ] = instance.costs_by_scenarios
+        Cuts.id_scenarios: List[int] = instance.id_scenarios
 
         Cuts.optimality_cuts = 0
         Cuts.LBF_cuts = 0
@@ -55,32 +58,40 @@ class Cuts:
         Y = model.cbGetSolution(model._Y)
         θ = model.cbGetSolution(model._θ)
 
-        subproblem_run_time, subproblem_cost = Cuts.SP.solve_model(Y, False)
-        Cuts.subproblem_solved += 1
-        total_cost = model._total_cost.getValue() + subproblem_cost
+        for t in range(Cuts.periods):
+            for n in Cuts.id_scenarios:
+                subproblem_run_time, subproblem_cost = Cuts.SPs[(t, n)].solve_model(
+                    Y, False
+                )
+                Cuts.subproblem_solved += 1
+                total_cost = model._total_cost.getValue() + subproblem_cost
 
-        # update upper bound and best solution found so far
-        if total_cost < Cuts.upper_bound:
-            Cuts.upper_bound = total_cost
-            Cuts.best_solution = Y
-            Cuts.time_best_solution_found = round(time.time() - Cuts.start_time, 3)
-            Cuts.upper_bound_updated += 1
-            model.cbSetSolution(model._Y, Y)
-            model.cbSetSolution(
-                model._θ, subproblem_cost
-            )  # TODO: check if this is correct
-            model.cbUseSolution()
+                # update upper bound and best solution found so far
+                if total_cost < Cuts.upper_bound:
+                    Cuts.upper_bound = total_cost
+                    Cuts.best_solution = Y
+                    Cuts.time_best_solution_found = round(
+                        time.time() - Cuts.start_time, 3
+                    )
+                    Cuts.upper_bound_updated += 1
+                    model.cbSetSolution(model._Y, Y)
+                    model.cbSetSolution(
+                        model._θ, subproblem_cost
+                    )  # TODO: check if this is correct
+                    model.cbUseSolution()
 
-        if θ[(Cuts.period, Cuts.id_scenario)] < subproblem_cost:
-            # Create the activation function:
-            act_functon = Cuts.get_activation_function(model, Y, subproblem_cost)
+                if θ[(t, n)] < subproblem_cost:
+                    # Create the activation function:
+                    act_functon = Cuts.get_activation_function(
+                        model, Y, subproblem_cost, n, t
+                    )
 
-            # Add the optimality cut:
-            model.cbLazy(θ[(Cuts.period, Cuts.id_scenario)] <= act_functon)
-            Cuts.optimality_cuts += 1
+                    # Add the optimality cut:
+                    model.cbLazy(θ[(t, n)] <= act_functon)
+                    Cuts.optimality_cuts += 1
 
     @staticmethod
-    def get_activation_function(model, Y, subproblem_cost):
+    def get_activation_function(model, Y, subproblem_cost, n: int, t: int):
         """Get the activation function"""
         activation = (
             quicksum(
@@ -103,7 +114,7 @@ class Cuts:
             [
                 np.min(
                     [
-                        Cuts.costs["satellite"][(s, k, Cuts.period)]["total"]
+                        Cuts.costs_by_scenario[str(n)]["satellite"][(s, k, t)]["total"]
                         for s in Cuts.satellites.keys()
                         if Y[(s, k)] > 0
                     ]
@@ -114,3 +125,15 @@ class Cuts:
         activation_function = L + (subproblem_cost - L) * activation
 
         return activation_function
+
+    def __create_subproblems(self, instance: Instance) -> Dict[Any, SubProblem]:
+        """Create the subproblems"""
+        subproblems = {}
+        for t in range(instance.periods):
+            for n in instance.id_scenarios:
+                scenario = {
+                    "pixels": instance.pixels_by_scenarios[str(n)],
+                    "costs": instance.costs_by_scenarios[str(n)],
+                }
+                subproblems[(t, n)] = SubProblem(instance, t, scenario)
+        return subproblems
