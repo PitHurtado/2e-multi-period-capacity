@@ -1,7 +1,7 @@
 """Main module to solve the Branch and Cut algorithm"""
 
 from src.instance.instance_generator import InstanceGenerator
-from src.runners.main_branch_and_cut import Main
+from src.app.main_branch_and_cut import Main
 
 if __name__ == "__main__":
     # (1) Generate instance:
