@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-class ContinuousAproximationConfig:
+class ContinuousApproximationConfig:
     """Class to define the configuration of the CA"""
 
     def __init__(
