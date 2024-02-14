@@ -34,7 +34,6 @@ class Cuts:
         Cuts.id_scenarios: List[int] = instance.id_scenarios
 
         Cuts.optimality_cuts = 0
-        Cuts.LBF_cuts = 0
         Cuts.best_solution = {}
         Cuts.upper_bound_updated = 0
         Cuts.upper_bound = sys.maxsize
@@ -48,7 +47,6 @@ class Cuts:
         if where == GRB.Callback.MIPSOL:
             Cuts.add_cut_integer_solution(model)
         logger.info(f"Optimality cuts: {Cuts.optimality_cuts}")
-        logger.info(f"LBF cuts: {Cuts.LBF_cuts}")
 
     @staticmethod
     def add_cut_integer_solution(model) -> None:
