@@ -14,5 +14,4 @@ Instance parameters we have:
    1. if `beta > 1` then the cost of installing a satellite is more expensive than the cost of operating a satellite.
 8. `type_of_flexibility` - The type of flexibility to be considered.
    1. `type_of_flexibility = 1` - The flexibility is considered in the installation of satellites, i.e., if satellites are installed so that they have to operate always with the same capacity.
-   2. `type_of_flexibility = 2` - The flexibility is considered in the operation of satellites, i.e., if satellites are installed so that they have to operate always with different capacities.
-   3. `type_of_flexibility = 3` - The flexibility is considered in the installation and operation of satellites, i.e., if satellites are installed so that they can operate with different capacities.
+   2. `type_of_flexibility = 2` - The flexibility is considered in the installation and operation of satellites, i.e., if satellites are installed so that they can operate with different capacities.
