@@ -119,7 +119,7 @@ class Cuts:
                         if Y[(s, k)] > 0
                     ]
                 )
-                for k in Cuts.pixels.keys()
+                for k in Cuts.pixels_by_scenario[str(n)].keys()
             ]
         )
         activation_function = L + (subproblem_cost - L) * activation
@@ -137,3 +137,8 @@ class Cuts:
                 }
                 subproblems[(t, n)] = SubProblem(instance, t, scenario)
         return subproblems
+
+    @staticmethod
+    def set_start_time(start_time):
+        """Set start time"""
+        Cuts.start_time = start_time
