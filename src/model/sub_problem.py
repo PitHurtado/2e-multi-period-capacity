@@ -25,7 +25,6 @@ class SubProblem:
         # Instance
         self.t: int = period
         self.satellites: Dict[str, Satellite] = instance.satellites
-        self.scenarios: Dict[str, Any] = instance.get_scenarios()
         self.type_of_flexibility: str = instance.type_of_flexibility
         self.is_continuous_X: bool = instance.is_continuous_X
 
