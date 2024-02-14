@@ -41,23 +41,30 @@ class SubProblem:
         return gp.Model(name="SubProblem")
 
     def __add_variables(
-        self, satellites: Dict[str, Satellite], pixels: Dict[str, Pixel]
+        self,
+        satellites: Dict[str, Satellite],
+        pixels: Dict[str, Pixel],
+        fixed_y: Dict,
     ) -> None:
         """Add variables to the model."""
         logger.info("[SUBPROBLEM] Adding variables to sub problem")
         self.X = dict(
             [
                 (
-                    (s, q, self.t),
+                    (s, q_lower, self.t),
                     self.model.addVar(vtype=GRB.BINARY, name=f"X_s{s}_t{self.t}"),
                 )
                 for s, satellite in satellites.items()
                 for q in satellite.capacity.keys()
+                for q_lower in satellite.capacity.keys()
+                if fixed_y[(s, q)] > 0.5
+                and q
+                >= q_lower  # only if the satellite is installed with higher capacity
             ]
         )
         logger.info(f"Number of variables X: {len(self.X)}")
 
-        # 2. add variable Z: binary variable to decide if a satellite is used to serve a pixel
+        # 2. add variable Z: binary variable to decide if a satellite is used to serve a pixel # noqa
         logger.info("[SUBPROBLEM] Add variable Z")
         if not self.is_continuous_X:
             type_variable = GRB.BINARY
@@ -68,11 +75,22 @@ class SubProblem:
                 (
                     (s, k, self.t),
                     self.model.addVar(
-                        vtype=type_variable, name=f"Z_s{s}_k{k}_t{self.t}"
+                        vtype=type_variable,
+                        name=f"Z_s{s}_k{k}_t{self.t}",
+                        lb=0.0,
+                        ub=1.0,
                     ),
                 )
                 for s in satellites.keys()
                 for k in pixels.keys()
+                if len(
+                    [
+                        fixed_y[(s, q)]
+                        for q in satellites.capacity.keys()
+                        if fixed_y[(s, q)] > 0.5
+                    ]
+                )
+                > 0  # only if the satellite is installed
             ]
         )
         logger.info(f"Number of variables Z: {len(self.Z)}")
@@ -83,7 +101,9 @@ class SubProblem:
             [
                 (
                     (k, self.t),
-                    self.model.addVar(vtype=type_variable, name=f"W_k{k}_t{self.t}"),
+                    self.model.addVar(
+                        vtype=type_variable, name=f"W_k{k}_t{self.t}", lb=0.0, ub=1.0
+                    ),
                 )
                 for k in pixels.keys()
             ]
@@ -91,15 +111,22 @@ class SubProblem:
         logger.info(f"Number of variables W: {len(self.W)}")
 
     def __add_objective(
-        self, satellites: Dict[str, Satellite], pixels: Dict[str, Pixel], costs: Dict
+        self,
+        satellites: Dict[str, Satellite],
+        pixels: Dict[str, Pixel],
+        costs: Dict,
+        fixed_y: Dict,
     ) -> None:
         """Add objective function to the model."""
         # 1. add cost operating satellites
         self.cost_operating_satellites = quicksum(
             [
-                (satellite.cost_operation[q][self.t]) * self.X[(s, q, self.t)]
+                (satellite.cost_operation[q_lower][self.t])
+                * self.X[(s, q_lower, self.t)]
                 for s, satellite in satellites.items()
                 for q in satellite.capacity.keys()
+                for q_lower in satellite.capacity.keys()
+                if fixed_y[(s, q)] > 0.5 and q >= q_lower
             ]
         )
 
@@ -109,6 +136,14 @@ class SubProblem:
                 costs["satellite"][(s, k, self.t)]["total"] * self.Z[(s, k, self.t)]
                 for s in satellites.keys()
                 for k in pixels.keys()
+                if len(
+                    [
+                        fixed_y[(s, q)]
+                        for q in satellites.capacity.keys()
+                        if fixed_y[(s, q)] > 0.5
+                    ]
+                )
+                > 0  # only if the satellite is installed
             ]
         )
 
@@ -129,79 +164,111 @@ class SubProblem:
 
     def solve_model(self, fixed_y, final_solution) -> None:
         """Solve the model."""
-        self.__add_variables(self.satellites, self.pixels)
-        self.__add_objective(self.satellites, self.pixels, self.costs)
+        self.__add_variables(self.satellites, self.pixels, fixed_y)
+        self.__add_objective(self.satellites, self.pixels, self.costs, fixed_y)
 
         # Add Constraints
         # (1) operating satellite
-        for s, satellite in self.satellites.items():
-            if self.type_of_flexibility == 1:  # opera siempre con la misma capacidad
+        if self.type_of_flexibility == 1:
+            for s, satellite in self.satellites.items():
                 for q in satellite.capacity.keys():
-                    nameConstraint = f"R_Operating_s{s}_q{q}_t{self.t}"
-                    self.model.addConstr(
-                        self.X[(s, q, self.t)] == fixed_y[(s, q)],
-                        name=nameConstraint,
-                    )
-            elif self.type_of_flexibility == 2:  # opera o no con la misma capacidad
-                for q in satellite.capacity.keys():
-                    nameConstraint = f"R_Operating_s{s}_q{q}_t{self.t}"
-                    self.model.addConstr(
-                        self.X[(s, q, self.t)] <= fixed_y[(s, q)],
-                        name=nameConstraint,
-                    )
-            elif (
-                self.type_of_flexibility == 3
-            ):  # opera o no con a lo mas la capacidad de apertura
-                for q, capacity in satellite.capacity.items():
-                    for q_lower, capacity_lower in satellite.capacity.items():
-                        if capacity >= capacity_lower:
-                            nameConstraint = f"R_Operating_s{s}_q{q_lower}_t{self.t}"
-                            self.model.addConstr(
-                                self.X[(s, q_lower, self.t)] <= fixed_y[(s, q)],
-                                name=nameConstraint,
-                            )
+                    if fixed_y[(s, q)] > 0.5:
+                        nameConstraint = f"R_Operating_s{s}_q{q}_t{self.t}"
+                        self.model.addConstr(
+                            self.X[(s, q, self.t)] == 1,
+                            name=nameConstraint,
+                        )
+        # TODO - check if it is necessary due to this is considering in definition of variables # noqa
+        # elif self.type_of_flexibility == 2:
+        #     for s, satellite in self.satellites.items():
+        #         for q in satellite.capacity.keys():
+        #             for q_lower in satellite.capacity.keys():
+        #                 if fixed_y[(s, q)] > 0.5 and q >= q_lower:
+        #                     nameConstraint = f"R_Operating_s{s}_q{q_lower}_t{self.t}"
+        #                     self.model.addConstr(
+        #                         self.X[(s, q_lower, self.t)] <= 1,
+        #                         name=nameConstraint,
+        #                     )
 
         # (2) capacity satellite
         for s, satellite in self.satellites.items():
-            nameConstraint = f"R_capacity_s{s}_t{self.t}"
-            self.model.addConstr(
-                quicksum(
+            if (
+                len(
                     [
-                        self.Z[(s, k, self.t)]
-                        * self.fleet_size_required["small"][(s, k, self.t)][
-                            "fleet_size"
+                        fixed_y[(s, q)]
+                        for q in satellite.capacity.keys()
+                        if fixed_y[(s, q)] > 0.5
+                    ]
+                )
+                > 0
+            ):
+                nameConstraint = f"R_capacity_s{s}_t{self.t}"
+                self.model.addConstr(
+                    quicksum(
+                        [
+                            self.Z[(s, k, self.t)]
+                            * self.fleet_size_required["small"][(s, k, self.t)][
+                                "fleet_size"
+                            ]
+                            for k in self.pixels.keys()
                         ]
-                        for k in self.pixels.keys()
-                    ]
+                    )
+                    - quicksum(
+                        [
+                            fixed_y[(s, q)] * capacity
+                            for q, capacity in satellite.capacity.items()
+                        ]
+                    )
+                    <= 0,
+                    name=nameConstraint,
                 )
-                - quicksum(
-                    [
-                        fixed_y[(s, q)] * capacity
-                        for q, capacity in satellite.capacity.items()
-                    ]
-                )
-                <= 0,
-                name=nameConstraint,
-            )
 
         # (3) assign pixel to satellite
         for k in self.pixels.keys():
             for s, satellite in self.satellites.items():
-                nameConstratint = f"R_Assign_s{s}_k{k}_t{self.t}"
-                self.model.addConstr(
-                    self.Z[(s, k, self.t)]
-                    - quicksum(
-                        [self.X[(s, q, self.t)] for q in satellite.capacity.keys()]
+                if (
+                    len(
+                        [
+                            fixed_y[(s, q)]
+                            for q in satellite.capacity.keys()
+                            if fixed_y[(s, q)] > 0.5
+                        ]
                     )
-                    <= 0,
-                    name=nameConstratint,
-                )
+                    > 0
+                ):
+                    nameConstratint = f"R_Assign_s{s}_k{k}_t{self.t}"
+                    self.model.addConstr(
+                        self.Z[(s, k, self.t)]
+                        - quicksum(
+                            [
+                                self.X[(s, q_lower, self.t)]
+                                for q in satellite.capacity.keys()
+                                for q_lower in satellite.capacity.keys()
+                                if fixed_y[(s, q)] > 0.5 and q >= q_lower
+                            ]
+                        )
+                        <= 0,
+                        name=nameConstratint,
+                    )
 
         # (4) demand satisfied
         for k in self.pixels.keys():
             nameConstraint = f"R_demand_k{k}_t{self.t}"
             self.model.addConstr(
-                quicksum([self.Z[(s, k, self.t)] for s in self.satellites.keys()])
+                quicksum(
+                    [
+                        self.Z[(s, k, self.t)]
+                        for s, satellite in self.satellites.items()
+                        if len(
+                            [
+                                fixed_y[(s, q)]
+                                for q in satellite.capacity.keys()
+                                if fixed_y[(s, q)] > 0.5
+                            ]
+                        )
+                        > 0
+                    ]
+                )
                 + quicksum([self.W[(k, self.t)]])
                 == 1,
                 name=nameConstraint,
