@@ -17,7 +17,7 @@ class Main:
     def __init__(self, run_time):
         self.run_time = run_time
 
-    def solve(self, instance: Instance):
+    def solve(self, instance: Instance, folder_path: str):
         """Solve the instance"""
         # (1) Create Branch and Cut:
         BC = Branch_and_Cut(instance)
@@ -41,8 +41,11 @@ class Main:
             "initial_upper_bound": initial_upper_bound,
             "id_instance": instance.id_instance,  # TODO - check if this is necessary
         }
-        with open("results.json", "w") as f:
+        logger.info(f"[Main] Results: {results}")
+        results.update(BC.get_metrics(folder_path))
+
+        file_name = f"{folder_path}/id_instance_{instance.id_instance}_results.json"
+        with open(file_name, "w") as f:
             json.dump(results, f)
         logger.info(f"[Main] Results saved in results.json")
-
         return results
