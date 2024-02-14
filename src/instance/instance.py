@@ -3,7 +3,7 @@ import logging
 import sys
 from typing import Dict, List
 
-from src.classes import Pixel
+from src.classes import Pixel, Satellite
 from src.continuous_approximation.fleet_size import ContinuousApproximationConfig
 from src.etl import Data
 
@@ -21,6 +21,7 @@ class Instance:
 
     def __init__(
         self,
+        id_instance: str,
         N: int,
         capacity_satellites: List[int],
         is_continuous_X: bool,
@@ -33,6 +34,7 @@ class Instance:
         M: int = 20,
         N_testing: int = 100,
     ):  # pylint: disable=too-many-arguments
+        self.id_instance = id_instance
         self.N_testing = N_testing
         self.capacity_satellites = capacity_satellites
         self.is_continuous_X = is_continuous_X
@@ -45,7 +47,7 @@ class Instance:
         self.folder_path = folder_path
 
         self.id_scenarios = id_scenarios
-        self.satellites = self.__read_satellites()
+        self.satellites: Dict[str, Satellite] = self.__read_satellites()
         self.vehicles = self.__read_vehicles()
 
         # create instance of continuous approximation
@@ -81,6 +83,8 @@ class Instance:
             for id_scenario in id_scenarios
         }
         self.periods = 12
+
+        self.__update_instance()
 
     def __str__(self):
         return (
@@ -293,3 +297,16 @@ class Instance:
                 }
             )
         return scenarios
+
+    def __update_instance(self):
+        """Update the instance."""
+
+        # (1) Update the capacity of the satellites:
+        for satellite in self.satellites.values():
+            satellite.capacity = {
+                str(capacity): capacity for capacity in self.capacity_satellites
+            }
+
+        # (2) Update the costs of the pixels (ALPHA):
+
+        # (3) Update the costs of the satellites (BETA):
