@@ -28,7 +28,7 @@ class InstanceGenerator:
         is_continuous_X = [True, False]
         alpha = [0.1, 0.5]
         beta = [0.1, 0.5]
-        type_of_flexibility = ["all-fixed", "fixed-flexible", "all-flexible"]
+        type_of_flexibility = [1, 2]
 
         # Generate instances
         instances_list = []
