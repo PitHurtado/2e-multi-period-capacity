@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 
 from gurobipy import GRB, quicksum
 
-from classes import Satellite, Vehicle
+from src.classes import Satellite, Vehicle
 from src.instance.instance import Instance
 from src.model.sub_problem import SubProblem
 
