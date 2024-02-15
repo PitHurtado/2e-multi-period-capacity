@@ -69,8 +69,9 @@ class SampleAverageApproximation:
             bc_evaluation: Branch_and_Cut = self.__create_branch_and_cut(
                 instances_evaluation
             )
-            bc_evaluation.solve_subproblem_evaluation(solution)
-            current_solution: Dict[str, float] = bc_evaluation.get_metrics_evaluation()
+            current_solution["objective_value"] = bc_evaluation.solve_evaluation(
+                solution
+            )
             current_solution["id_experiment"] = self.id_experiment
             current_solution["id_solution"] = i
             current_solution["solution"] = solution

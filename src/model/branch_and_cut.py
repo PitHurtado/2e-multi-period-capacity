@@ -1,11 +1,13 @@
 """Module to solve the Branch and Cut algorithm"""
-import json
 import logging
 import time
-from typing import Dict
+from typing import Any, Dict
+
+import numpy as np
 
 from src.classes import Satellite, Vehicle
 from src.instance.instance import Instance
+from src.instance.scenario import Scenario
 from src.model.cuts import Cuts
 from src.model.master_problem import MasterProblem
 from src.model.sub_problem import SubProblem
@@ -20,22 +22,17 @@ class Branch_and_Cut:
     """Class to define the Branch and Cut algorithm"""
 
     def __init__(self, instance: Instance):
+        # solvers
         self.MP = MasterProblem(instance)
         self.Cuts = Cuts(instance)
-        self.instance = instance
 
         # Params
+        self.id_instance = instance.id_instance
+        self.instance = instance
         self.satellites: Dict[str, Satellite] = instance.satellites
-        self.pixels_by_scenarios: Dict = instance.pixels_by_scenarios
-        self.costs_by_scenarios: Dict = instance.costs_by_scenarios
-        self.fleet_size_required_by_scenarios: Dict = (
-            instance.fleet_size_required_by_scenarios
-        )
+        self.scenarios: Dict[str, Scenario] = instance.scenarios
         self.vehicles: Dict[str, Vehicle] = instance.vehicles
         self.periods = instance.periods
-
-        # Scenarios to evaluate
-        self.scenarios_to_evalute: Dict = instance.get_scenarios_evaluation()
 
         # config params
         self.objective_value = 0
@@ -44,7 +41,7 @@ class Branch_and_Cut:
         self.optimality_gap = 0
         self.best_bound_value = 0
 
-    def solve(self, max_run_time, warm_start):
+    def solve(self, max_run_time: int, warm_start: bool = False) -> None:
         """Solve the Branch and Cut algorithm"""
         # (1) Create master problem:
         # self.MP.create_model(warm_start) # TODO - check if this is necessary
@@ -67,68 +64,54 @@ class Branch_and_Cut:
         self.run_time = round(time.time() - start_time, 3)
         self.optimality_gap = round(100 * self.MP.model.MIPGap, 3)
         self.objective_value = round(self.MP.get_objective_value(), 3)
-        self.initial_upper_bound = round(self.MP.get_initial_upper_bound(), 3)
         self.MP.model.dispose()
 
-    def get_metrics_from_fixed_solution(self, folder_path):
-        """Get metrics from fixed solution"""
-        best_solution = self.Cuts.best_solution
-        subproblem_solution = []
+    def get_best_solution_allocation(self):
+        """Get the best solution allocation"""
+        return self.Cuts.best_solution
 
+    def get_metrics_evaluation(self):
+        """Get metrics of the evaluation"""
         metrics = {
+            "cost_installed_satellites": self.MP.model._cost_allocation_satellites.getValue(),
             "run_time": self.run_time,
             "optimality_gap": self.optimality_gap,
             "objective_value": self.objective_value,
             "best_bound_value": self.best_bound_value,
-            "initial_upper_bound": self.initial_upper_bound,
+            "solution": self.Cuts.best_solution,
         }
-
-        # (1) Create subproblems:
-        for i, scenario in enumerate(self.scenarios_to_evalute):
-            for period in range(self.periods):
-                solver = SubProblem(
-                    instance=self.instance, period=period, scenario=scenario
-                )
-                (
-                    subproblem_run_time,
-                    subproblem_cost,
-                    subproblem_solution,
-                ) = solver.solve_model(best_solution, True)
-                logger.info(
-                    f"[BRANCH AND CUT] Subproblem X - Period {period} - Run time: {subproblem_run_time}"
-                )
-
-                # Save subproblem metrics
-                subproblem_metrics = {
-                    "run_time": subproblem_run_time,
-                    "subproblem_cost": subproblem_cost,
-                    "subproblem_solution": subproblem_solution,
-                }
-                file_name = (
-                    folder_path
-                    + "/individual/"
-                    + str(i)
-                    + "scenario_evaluation"
-                    + ".json"
-                )
-                with open(file_name, "w") as json_file:
-                    json.dump(subproblem_metrics, json_file, indent=4)
-
-                # Save metrics
-                metrics.update(
-                    {
-                        "satellites_used": best_solution,
-                        "sp_total_cost": subproblem_cost["sp_total_cost"],
-                        "sp_cost_served_from_dc": subproblem_cost[
-                            "sp_cost_served_from_dc"
-                        ],
-                        "sp_cost_served_from_satellite": subproblem_cost[
-                            "sp_cost_served_from_satellite"
-                        ],
-                        "sp_cost_operating_satellites": subproblem_cost[
-                            "sp_cost_operating_satellites"
-                        ],
-                    }
-                )
-
         return metrics
+
+    def __solve_subproblem(
+        self, scenario: Scenario, t: int, solution: Dict[Any, float]
+    ) -> float:
+        """Solve the subproblem"""
+        # (1) create subproblem
+        sub_problem = SubProblem(self.instance, t, scenario)
+        sp_run_time, sp_total_cost, sp_solution = sub_problem.solve_model(
+            solution, True
+        )
+        return sp_total_cost
+
+    def solve_evaluation(self, solution: Dict[Any, float]) -> float:
+        """Solve the subproblem for the evaluation"""
+        # (1) compute cost installed satellites
+        cost_installed_satellites = np.sum(
+            [
+                satellite.cost_fixed * solution[(s, t)]
+                for s, satellite in self.satellites.items()
+                for t in range(self.periods)
+            ]
+        )
+
+        # (2) create subproblem N * T times and solve
+        cost_second_echeleon = 0
+        for scenario in self.scenarios.values():
+            for t in range(self.periods):
+                cost_second_echeleon += self.__solve_subproblem(scenario, t, solution)
+
+        # (3) compute total cost of the evaluation
+        total_cost = (
+            cost_installed_satellites + (1 / len(self.scenarios)) * cost_second_echeleon
+        )
+        return total_cost
