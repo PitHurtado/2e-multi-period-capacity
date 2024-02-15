@@ -31,8 +31,8 @@ class MasterProblem:
         self.Y = {}
         self.θ = {}
 
-        # Parameters
-        self.LB = {}
+        # Parameters Lower Bound
+        self.LB = self.__compute_lower_bound()
 
     def build(self) -> None:
         """Build the master problem."""
@@ -76,8 +76,6 @@ class MasterProblem:
         logger.info(f"Number of variables θ: {len(self.θ)}")
         self.model._Y = self.Y
         self.model._θ = self.θ
-
-        self.LB = self.__compute_lower_bound()
 
     def __compute_lower_bound(self):
         """Compute the lower bound for the second stage cost."""
@@ -146,10 +144,12 @@ class MasterProblem:
 
     def get_objective_value(self):
         """Get the objective value of the model."""
+        logger.info("[MODEL] Getting objective value")
         return self.model._total_cost.getValue()
 
     def get_best_bound_value(self):
         """Get the best bound value of the model."""
+        logger.info("[MODEL] Getting best bound value")
         return self.model.ObjBound
 
     def set_start_time(self, start_time):
