@@ -77,6 +77,23 @@ class Instance:
             f"-----------------"
         )
 
+    def get_info(self) -> Dict:
+        """Get the information of the instance."""
+        return {
+            "id_instance": self.id_instance,
+            "capacity_satellites": self.capacity_satellites,
+            "is_continuous_x": self.is_continuous_x,
+            "alpha": self.alpha,
+            "beta": self.beta,
+            "type_of_flexibility": self.type_of_flexibility,
+            "periods": self.periods,
+            "N": self.N,
+            "is_evaluation": self.is_evaluation,
+            "quantity_satellites": len(self.satellites),
+            "quantity_vehicles": len(self.vehicles),
+            "quantity_scenarios": len(self.scenarios),
+        }
+
     def __read_satellites(self) -> Dict[str, Satellite]:
         """Reads the satellites from the file."""
         try:
