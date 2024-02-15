@@ -84,7 +84,7 @@ class Instance:
         }
         self.periods = 12
 
-        self.__update_instance()
+        self.__update_instance()  # TODO now jut update the capacity of the satellites
 
     def __str__(self):
         return (
@@ -298,6 +298,47 @@ class Instance:
             )
         return scenarios
 
+    def get_scenarios_evaluation(self) -> Dict:
+        """Get the scenarios."""
+        scenarios = {}
+        id_scenarios_evaluation: List[int] = self.__get_scenarios_evaluation()
+        pixels_by_scenarios = {
+            str(id_scenario): self.__read_pixels(id_scenario)
+            for id_scenario in id_scenarios_evaluation
+        }
+        fleet_size_required_by_scenarios = {
+            str(id_scenario): self.__calculate_fleet_size_required(
+                pixels_by_scenarios[str(id_scenario)]
+            )
+            for id_scenario in id_scenarios_evaluation
+        }
+        costs_shipping_by_scenarios = {
+            str(id_scenario): self.__calculate_costs_shipping(
+                pixels_by_scenarios[str(id_scenario)],
+            )
+            for id_scenario in id_scenarios_evaluation
+        }
+        costs_by_scenarios = {
+            str(id_scenario): self.__calculate_costs(
+                pixels_by_scenarios[str(id_scenario)],
+                fleet_size_required_by_scenarios[str(id_scenario)],
+                costs_shipping_by_scenarios[str(id_scenario)],
+            )
+            for id_scenario in id_scenarios_evaluation
+        }
+        for id_scenario in id_scenarios_evaluation:
+            scenarios[str(id_scenario)] = dict(
+                {
+                    "pixels": pixels_by_scenarios[str(id_scenario)],
+                    "costs": costs_by_scenarios[str(id_scenario)],
+                    "costs_shipping": costs_shipping_by_scenarios[str(id_scenario)],
+                    "fleet_size_required": fleet_size_required_by_scenarios[
+                        str(id_scenario)
+                    ],
+                }
+            )
+        return scenarios
+
     def __update_instance(self):
         """Update the instance."""
 
@@ -310,3 +351,7 @@ class Instance:
         # (2) Update the costs of the pixels (ALPHA):
 
         # (3) Update the costs of the satellites (BETA):
+
+    def __get_scenarios_evaluation(self) -> List[int]:
+        """Get the scenarios for evaluation."""
+        return range(1, self.N_testing + 1)
