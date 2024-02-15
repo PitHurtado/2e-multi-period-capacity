@@ -48,7 +48,7 @@ class SampleAverageApproximation:
                 str, float
             ] = (
                 branch_and_cut.get_best_solution_allocation()
-            )  # TODO - check if this method exists
+            )
 
             # check if the current solution is not in the best solutions
             if not any(
@@ -73,7 +73,7 @@ class SampleAverageApproximation:
             )
             bc_evaluation.solve_subproblem_evaluation(
                 solution
-            )  # TODO - check if this method exists
+            )
             current_solution: Dict[str, float] = bc_evaluation.get_metrics_evaluation()
             current_solution["id_experiment"] = self.id_experiment
             current_solution["id_solution"] = i
