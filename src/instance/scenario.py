@@ -39,7 +39,7 @@ class Scenario:
         """
         return self.fleet_size_required[echelon]
 
-    def get_c(self, echelon: str) -> Dict[Any, float]:
+    def get_cost_serving(self, echelon: str) -> Dict[Any, float]:
         """Return the total costs for a given echelon and period
         ----
         Params:
