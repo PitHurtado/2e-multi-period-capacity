@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 
 from gurobipy import GRB, quicksum
 
-from classes import Pixel, Satellite, Vehicle
+from classes import Satellite, Vehicle
 from src.instance.instance import Instance
 from src.model.sub_problem import SubProblem
 
@@ -25,12 +25,6 @@ class Cuts:
         Cuts.satellites: Dict[str, Satellite] = instance.satellites
         Cuts.vehicles: Dict[str, Vehicle] = instance.vehicles
 
-        Cuts.pixels_by_scenario: Dict[
-            str, Dict[str, Pixel]
-        ] = instance.pixels_by_scenarios
-        Cuts.costs_by_scenario: Dict[
-            str, Dict[str, Dict[str, Dict[str, float]]]
-        ] = instance.costs_by_scenarios
         Cuts.id_scenarios: List[int] = instance.id_scenarios
 
         Cuts.optimality_cuts = 0
@@ -46,7 +40,7 @@ class Cuts:
         """Add optimality cuts and LBF cuts"""
         if where == GRB.Callback.MIPSOL:
             Cuts.add_cut_integer_solution(model)
-        logger.info(f"Optimality cuts: {Cuts.optimality_cuts}")
+        logger.info(f"[CUT] Optimality cuts: {Cuts.optimality_cuts}")
 
     @staticmethod
     def add_cut_integer_solution(model) -> None:
@@ -117,6 +111,9 @@ class Cuts:
                 scenario = {
                     "pixels": instance.pixels_by_scenarios[str(n)],
                     "costs": instance.costs_by_scenarios[str(n)],
+                    "fleet_size_required": instance.fleet_size_required_by_scenarios[
+                        str(n)
+                    ],
                 }
                 subproblems[(t, n)] = SubProblem(instance, t, scenario)
         return subproblems
