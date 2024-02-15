@@ -138,7 +138,7 @@ class Instance:
         # validate if the file exists
         path_json = PATH_SAMPLING_SCENARIO + f"instance_{self.id_instance}.json"
         id_scenarios_sample = []
-        if os.path.exists(path_json):
+        if os.path.exists(path_json) and self.is_evaluation:
             with open(path_json, "r") as file:
                 data = json.load(file)
                 id_scenarios_sample = data["id_scenarios_sample"]
