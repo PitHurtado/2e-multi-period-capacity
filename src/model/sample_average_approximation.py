@@ -37,7 +37,7 @@ class SampleAverageApproximation:
         instances_evaluation: Instance = self.experiment["instances_evaluation"]
 
         # (1) Train the model
-        best_solutions: List[Dict[str, float]] = []
+        best_solutions: List[Dict[Any, float]] = []
         for n, instance in instances_train.items():
             logger.info(
                 f"[SAA] ID experiment {self.id_experiment} -  Train model for instance {n}"
@@ -46,9 +46,7 @@ class SampleAverageApproximation:
             branch_and_cut.solve(max_run_time=3600, warm_start=False)
             current_solution: Dict[
                 str, float
-            ] = (
-                branch_and_cut.get_best_solution_allocation()
-            )
+            ] = branch_and_cut.get_best_solution_allocation()
 
             # check if the current solution is not in the best solutions
             if not any(
@@ -71,9 +69,7 @@ class SampleAverageApproximation:
             bc_evaluation: Branch_and_Cut = self.__create_branch_and_cut(
                 instances_evaluation
             )
-            bc_evaluation.solve_subproblem_evaluation(
-                solution
-            )
+            bc_evaluation.solve_subproblem_evaluation(solution)
             current_solution: Dict[str, float] = bc_evaluation.get_metrics_evaluation()
             current_solution["id_experiment"] = self.id_experiment
             current_solution["id_solution"] = i
