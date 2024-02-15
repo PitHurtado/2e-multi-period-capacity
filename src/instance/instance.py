@@ -1,11 +1,18 @@
 """Module of class instances."""
+import json
 import logging
-import sys
+import os
+import random
 from typing import Dict, List
 
-from src.classes import Pixel, Satellite
-from src.continuous_approximation.fleet_size import ContinuousApproximationConfig
+from src.classes import Pixel, Satellite, Vehicle
+from src.constants import PATH_SAMPLING_SCENARIO
+from src.continuous_approximation.fleet_size import (
+    ContinuousApproximationConfig,
+    get_cost_from_continuous_approximation,
+)
 from src.etl import Data
+from src.instance.scenario import Scenario
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -22,20 +29,18 @@ class Instance:
     def __init__(
         self,
         id_instance: str,
-        N: int,
-        capacity_satellites: List[int],
+        capacity_satellites: Dict[str, int],
         is_continuous_X: bool,
         alpha: float,
         beta: float,
-        type_of_flexibility: str,
-        id_scenarios: List[int],
-        folder_path: str,
-        periods: int = 12,
-        M: int = 20,
-        N_testing: int = 100,
+        type_of_flexibility: int,
+        periods: int,
+        N: int,
+        is_evaluation: bool,
     ):  # pylint: disable=too-many-arguments
         self.id_instance = id_instance
-        self.N_testing = N_testing
+
+        # parameters
         self.capacity_satellites = capacity_satellites
         self.is_continuous_X = is_continuous_X
         self.alpha = alpha
@@ -43,62 +48,39 @@ class Instance:
         self.type_of_flexibility = type_of_flexibility
         self.periods = periods
         self.N = N
-        self.M = M
-        self.folder_path = folder_path
+        self.is_evaluation = is_evaluation
 
-        self.id_scenarios = id_scenarios
-        self.satellites: Dict[str, Satellite] = self.__read_satellites()
-        self.vehicles = self.__read_vehicles()
-
-        # create instance of continuous approximation
+        self.vehicles: Dict[str, Vehicle] = self.__read_vehicles()
+        # continuous approximation
         self.computer_fleet_size = ContinuousApproximationConfig(
-            periods=12,
+            periods=periods,
             small_vehicle=self.vehicles["small"],
             large_vehicle=self.vehicles["large"],
         )
 
-        # read pixels and calculate fleet size required
-        self.pixels_by_scenarios = {
-            str(id_scenario): self.__read_pixels(id_scenario)
-            for id_scenario in id_scenarios
-        }
-        self.fleet_size_required_by_scenarios = {
-            str(id_scenario): self.__calculate_fleet_size_required(
-                self.pixels_by_scenarios[str(id_scenario)]
-            )
-            for id_scenario in id_scenarios
-        }
-        self.costs_shipping_by_scenarios = {
-            str(id_scenario): self.__calculate_costs_shipping(
-                self.pixels_by_scenarios[str(id_scenario)],
-            )
-            for id_scenario in id_scenarios
-        }
-        self.costs_by_scenarios = {
-            str(id_scenario): self.__calculate_costs(
-                self.pixels_by_scenarios[str(id_scenario)],
-                self.fleet_size_required_by_scenarios[str(id_scenario)],
-                self.costs_shipping_by_scenarios[str(id_scenario)],
-            )
-            for id_scenario in id_scenarios
-        }
-        self.periods = 12
-
-        self.__update_instance()  # TODO now jut update the capacity of the satellites
+        # read the data
+        self.satellites: Dict[str, Satellite] = self.__read_satellites()
+        self.scenarios: Dict[str, Scenario] = self.__compute_scenarios()
 
     def __str__(self):
         return (
+            f"---- Instance ----\n"
+            f"ID of the instance: {self.id_instance}\n"
             f"Capacity of satellites: {self.capacity_satellites}\n"
             f"Is continuous X: {self.is_continuous_X}\n"
             f"Alpha: {self.alpha}\n"
             f"Beta: {self.beta}\n"
             f"Type of flexibility: {self.type_of_flexibility}\n"
             f"Periods: {self.periods}\n"
-            f"M: {self.M}\n"
-            f"Folder path: {self.folder_path}\n"
+            f"N: {self.N}\n"
+            f"Is evaluation: {self.is_evaluation}\n"
+            f"Quantity of satellites: {len(self.satellites)}\n"
+            f"Quantity of vehicles: {len(self.vehicles)}\n"
+            f"Quantity of scenarios: {len(self.scenarios)}\n"
+            f"-----------------"
         )
 
-    def __read_satellites(self) -> Dict:
+    def __read_satellites(self) -> Dict[str, Satellite]:
         """Reads the satellites from the file."""
         try:
             satellites = Data.load_satellites()
@@ -107,7 +89,7 @@ class Instance:
             raise error
         return satellites
 
-    def __read_vehicles(self) -> Dict:
+    def __read_vehicles(self) -> Dict[str, Vehicle]:
         """Reads the vehicles from the file."""
         try:
             vehicles = Data.load_vehicles()
@@ -116,7 +98,7 @@ class Instance:
             raise error
         return vehicles
 
-    def __read_pixels(self, id_scenario: int) -> Dict:
+    def __read_pixels(self, id_scenario: int) -> Dict[str, Pixel]:
         """Reads the pixels from the file."""
         try:
             pixels = Data.load_scenario(id_scenario=id_scenario)
@@ -125,7 +107,7 @@ class Instance:
             raise error
         return pixels
 
-    def __calculate_fleet_size_required(self, pixels: Pixel) -> Dict:
+    def __calculate_fleet_size_required(self, pixels: Pixel) -> Dict[str, Dict]:
         """Calculates the fleet size required for the instance."""
         try:
             matrix_satellite_pixels = Data.load_matrix_from_satellite()
@@ -149,212 +131,75 @@ class Instance:
             logger.error(f"[calculate fleet size required] File not found: {error}")
             raise error
         fleet_size_required = {
-            "small": fleet_size_from_satellites,
-            "large": fleet_size_from_dc,
+            "satellite": fleet_size_from_satellites,
+            "dc": fleet_size_from_dc,
         }
         return fleet_size_required
 
+    def __get_scenarios_sample(self) -> List[int]:
+        """Get the scenarios for sample."""
+        # validate if the file exists
+        path_json = PATH_SAMPLING_SCENARIO + f"instance_{self.id_instance}.json"
+        id_scenarios_sample = []
+        if os.path.exists(path_json):
+            with open(path_json, "r") as file:
+                data = json.load(file)
+                id_scenarios_sample = data["id_scenarios_sample"]
+        else:
+            id_scenarios_sample = random.sample(range(500), self.N)
+            with open(path_json, "w") as file:
+                json.dump({"id_scenarios_sample": id_scenarios_sample}, file)
+        return id_scenarios_sample
+
     def __calculate_costs(
-        self, pixels: Pixel, fleet_size_required: Dict, cost_shipping: Dict
-    ) -> Dict:
+        self, pixels: Pixel, fleet_size_required: Dict[str, Dict]
+    ) -> Dict[str, Dict]:
         """Calculates the costs of the instance."""
         try:
-            costs = self.computer_fleet_size.cost_serving(
+            costs = get_cost_from_continuous_approximation(
                 pixels=pixels,
                 satellites=self.satellites,
-                vehicles_required=fleet_size_required,
-                cost_shipping=cost_shipping,
+                vehicles=self.vehicles,
+                periods=self.periods,
+                fleet_size_required=fleet_size_required,
             )
+            cost_from_dc = costs["dc"]
+            cost_from_satellites = costs["satellite"]
         except Exception as error:
             logger.error(f"[calculate costs] File not found: {error}")
             raise error
-        return costs
+        return {"dc": cost_from_dc, "satellite": cost_from_satellites}
 
-    def __calculate_costs_shipping(self, pixels: Pixel) -> Dict:
-        """Calculates the costs of the instance."""
-
-        def calculate_avg_distance_from_dc(matrix_distance, pixels) -> dict:
-            distance_average_from_dc = {}
-            min_distances, max_distances = sys.maxsize, -sys.maxsize - 1
-            for k in pixels.keys():
-                min_distances = (
-                    min_distances
-                    if matrix_distance["distance"][(k)] > min_distances
-                    else matrix_distance["distance"][(k)]
-                )
-                max_distances = (
-                    max_distances
-                    if matrix_distance["distance"][(k)] < max_distances
-                    else matrix_distance["distance"][(k)]
-                )
-            distance_average_from_dc = {
-                "min": min_distances,
-                "max": max_distances,
-                "interval": max_distances - min_distances,
-                "cost": 0.389 - 0.264,
-            }
-            return distance_average_from_dc
-
-        def calculate_avg_distance_from_satellites(
-            matrix_distance, satellites, pixels
-        ) -> dict:
-            distance_average_from_satellites = {}
-            for s in satellites.keys():
-                min_distances, max_distances = sys.maxsize, -sys.maxsize - 1
-                for k in pixels.keys():
-                    min_distances = (
-                        min_distances
-                        if matrix_distance["distance"][(s, k)] > min_distances
-                        else matrix_distance["distance"][(s, k)]
-                    )
-                    max_distances = (
-                        max_distances
-                        if matrix_distance["distance"][(s, k)] < max_distances
-                        else matrix_distance["distance"][(s, k)]
-                    )
-                distance_average_from_satellites[s] = {
-                    "min": min_distances,
-                    "max": max_distances,
-                    "interval": max_distances - min_distances,
-                    "cost": 0.421 - 0.335,
-                }
-            return distance_average_from_satellites
-
-        def calculate_cost_shipping_from_satellites(
-            matrix_distance, satellites, pixels, fee_cost_from_satellites
-        ) -> dict:
-            distance_average_from_satellites = calculate_avg_distance_from_satellites(
-                matrix_distance, satellites, pixels
-            )
-            cost_shipping_from_satellites = dict(
-                [
-                    (
-                        (s, k),
-                        distance_average_from_satellites[(s)]["cost"]
-                        / distance_average_from_satellites[(s)]["interval"]
-                        * (
-                            matrix_distance["distance"][(s, k)]
-                            - distance_average_from_satellites[(s)]["min"]
-                        )
-                        + fee_cost_from_satellites,
-                    )
-                    for s in satellites.keys()
-                    for k in pixels.keys()
-                ]
-            )
-            return cost_shipping_from_satellites
-
-        def calculate_cost_shipping_from_dc(
-            matrix_distance, pixels, fee_cost_from_dc
-        ) -> dict:
-            distance_average_from_dc = calculate_avg_distance_from_dc(
-                matrix_distance, pixels
-            )
-            cost_shipping_from_dc = dict(
-                [
-                    (
-                        k,
-                        distance_average_from_dc["cost"]
-                        / distance_average_from_dc["interval"]
-                        * (
-                            matrix_distance["distance"][(k)]
-                            - distance_average_from_dc["min"]
-                        )
-                        + fee_cost_from_dc,
-                    )
-                    for k in pixels.keys()
-                ]
-            )
-            return cost_shipping_from_dc
-
-        try:
-            matrix_dc_pixels = Data.load_matrix_from_dc()
-            cost_shipping_from_dc = calculate_cost_shipping_from_dc(
-                matrix_distance=matrix_dc_pixels,
-                pixels=pixels,
-                fee_cost_from_dc=FEE_COST_FROM_DC,
-            )
-            matrix_satellite_pixels = Data.load_matrix_from_satellite()
-            cost_shipping_from_satellites = calculate_cost_shipping_from_satellites(
-                matrix_distance=matrix_satellite_pixels,
-                satellites=self.satellites,
-                pixels=pixels,
-                fee_cost_from_satellites=FEE_COST_FROM_SATELLITE,
-            )
-        except Exception as error:
-            logger.error(f"[calculate costs shipping] File not found: {error}")
-            raise error
-        return {"dc": cost_shipping_from_dc, "satellite": cost_shipping_from_satellites}
-
-    def get_scenarios(self) -> Dict:
-        """Get the scenarios."""
+    def __compute_scenarios(self) -> Dict[str, Scenario]:
+        """Computes the scenarios."""
+        id_scenarios_sample = self.__get_scenarios_sample()
+        logger.info(f"Scenarios sample: {id_scenarios_sample}")
         scenarios = {}
-        for id_scenario in self.id_scenarios:
-            scenarios[str(id_scenario)] = dict(
-                {
-                    "pixels": self.pixels_by_scenarios[str(id_scenario)],
-                    "costs": self.costs_by_scenarios[str(id_scenario)],
-                    "fleet_size_required": self.fleet_size_required_by_scenarios[
-                        str(id_scenario)
-                    ],
-                }
+        for id_scenario in id_scenarios_sample:
+            pixels = self.__read_pixels(id_scenario)
+            fleet_size_required = self.__calculate_fleet_size_required(pixels)
+            costs_from_ca = self.__calculate_costs(pixels, fleet_size_required)
+            scenario = Scenario(
+                id_scenario=id_scenario,
+                pixels=pixels,
+                costs=costs_from_ca,
+                fleet_size_required=fleet_size_required,
+                periods=self.periods,
             )
+            scenarios[str(id_scenario)] = scenario
         return scenarios
 
-    def get_scenarios_evaluation(self) -> Dict:
-        """Get the scenarios."""
-        scenarios = {}
-        id_scenarios_evaluation: List[int] = self.__get_scenarios_evaluation()
-        pixels_by_scenarios = {
-            str(id_scenario): self.__read_pixels(id_scenario)
-            for id_scenario in id_scenarios_evaluation
-        }
-        fleet_size_required_by_scenarios = {
-            str(id_scenario): self.__calculate_fleet_size_required(
-                pixels_by_scenarios[str(id_scenario)]
-            )
-            for id_scenario in id_scenarios_evaluation
-        }
-        costs_shipping_by_scenarios = {
-            str(id_scenario): self.__calculate_costs_shipping(
-                pixels_by_scenarios[str(id_scenario)],
-            )
-            for id_scenario in id_scenarios_evaluation
-        }
-        costs_by_scenarios = {
-            str(id_scenario): self.__calculate_costs(
-                pixels_by_scenarios[str(id_scenario)],
-                fleet_size_required_by_scenarios[str(id_scenario)],
-                costs_shipping_by_scenarios[str(id_scenario)],
-            )
-            for id_scenario in id_scenarios_evaluation
-        }
-        for id_scenario in id_scenarios_evaluation:
-            scenarios[str(id_scenario)] = dict(
-                {
-                    "pixels": pixels_by_scenarios[str(id_scenario)],
-                    "costs": costs_by_scenarios[str(id_scenario)],
-                    "costs_shipping": costs_shipping_by_scenarios[str(id_scenario)],
-                    "fleet_size_required": fleet_size_required_by_scenarios[
-                        str(id_scenario)
-                    ],
-                }
-            )
-        return scenarios
 
-    def __update_instance(self):
-        """Update the instance."""
-
-        # (1) Update the capacity of the satellites:
-        for satellite in self.satellites.values():
-            satellite.capacity = {
-                str(capacity): capacity for capacity in self.capacity_satellites
-            }
-
-        # (2) Update the costs of the pixels (ALPHA):
-
-        # (3) Update the costs of the satellites (BETA):
-
-    def __get_scenarios_evaluation(self) -> List[int]:
-        """Get the scenarios for evaluation."""
-        return range(1, self.N_testing + 1)
+# if __name__ == "__main__":
+#     insta = Instance(
+#         id_instance="1",
+#         capacity_satellites={"small": 10, "large": 20},
+#         is_continuous_X=True,
+#         alpha=0.5,
+#         beta=0.5,
+#         type_of_flexibility=1,
+#         is_evaluation=False,
+#         periods=12,
+#         N=10,
+#     )
+#     print(insta)

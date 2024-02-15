@@ -1,7 +1,7 @@
 """Module to define the configuration of the CA"""
 import logging
 import math
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
 from src.classes import Pixel, Satellite, Vehicle
 
@@ -32,7 +32,7 @@ class ContinuousApproximationConfig:
             or pixel.demand_by_period[t] <= 0
         ):
             logger.warning(
-                f"Pixel {pixel.id_pixel} in period {t} has no demand or no stops or no drops"
+                f"[CA] Pixel {pixel.id_pixel} in period {t} has no demand or no stops or no drops"
             )
             return {
                 "fleet_size": 0,
@@ -104,7 +104,7 @@ class ContinuousApproximationConfig:
         satellites: Dict[str, Satellite],
     ) -> Dict[Any, float]:
         """Calculate the average fleet size for a pixel in a period of time"""
-        logger.info("Estimation of fleet size running for satellites")
+        logger.info("[CA] Estimation of fleet size running for satellites")
         fleet_size = dict(
             [
                 (
@@ -114,11 +114,10 @@ class ContinuousApproximationConfig:
                     ),
                 )
                 for t in range(self.periods)
-                for s, satellite in satellites.items()
+                for s in satellites.keys()
                 for k, pixel in pixels.items()
             ]
         )
-        logger.info("[INFO] Done")
         return fleet_size
 
     def calculate_avg_fleet_size_from_dc(
@@ -127,7 +126,7 @@ class ContinuousApproximationConfig:
         distances_line_haul: Dict[str, float],
     ) -> Dict[Any, float]:
         """Calculate the average fleet size for a pixel in a period of time"""
-        logger.info("Estimation of fleet size running for DC")
+        logger.info("[CA] Estimation of fleet size running for DC")
         fleet_size = dict(
             [
                 (
@@ -140,85 +139,89 @@ class ContinuousApproximationConfig:
                 for k, pixel in pixels.items()
             ]
         )
-        logger.info("[INFO] Done")
         return fleet_size
 
-    def cost_satellite_to_pixel_by_period(
-        self,
-        satellites: Dict[str, Satellite],
-        pixels: Dict[str, Pixel],
-        cost_shipping_satellite: Dict[Any, float],
-        vehicles_required: Dict[str, dict],
-    ) -> dict[(str, str, int), float]:
-        """Calculate the cost from satellite to pixel by period"""
-        costs = {}
-        for t in range(self.periods):
-            for k, pixel in pixels.items():
-                for s, satellite in satellites.items():
-                    cost_first_level = (
-                        satellite.cost_sourcing * pixel.demand_by_period[t]
-                    )
-                    cost_shipping = (
-                        cost_shipping_satellite[(s, k)] * pixel.demand_by_period[t]
-                    )
-                    cost_vehicles = (
-                        self.small_vehicle.cost_fixed
-                        * vehicles_required["small"][(s, k, t)]["fleet_size"]
-                    )
 
-                    total_cost = cost_first_level + cost_shipping + cost_vehicles
-                    costs[(s, k, t)] = {
-                        "total": total_cost,
-                        "first_level": cost_first_level,
-                        "shipping": cost_shipping,
-                        "vehicles": cost_vehicles,
-                    }
-        return costs
-
-    def cost_dc_to_pixel_by_period(
-        self,
-        pixels: Dict[str, Pixel],
-        cost_shipping_dc: Dict[str, float],
-        vehicles_required: Dict[str, dict],
-    ) -> Dict[Any, float]:
-        """Calculate the cost from DC to pixel by period"""
-        costs = {}
-        for t in range(self.periods):
-            for k, pixel in pixels.items():
-                cost_shipping = cost_shipping_dc[k] * pixel.demand_by_period[t]
+def cost_satellite_to_pixel(
+    satellites: Dict[str, Satellite],
+    pixels: Dict[str, Pixel],
+    vehicle: Vehicle,
+    periods: int,
+    fleet_size_required: Dict[Tuple[str, str], float],
+) -> Dict[Tuple[str, str, int], float]:
+    """Calculate the cost from satellite to pixel by period"""
+    costs = {}
+    for t in range(periods):
+        for k, pixel in pixels.items():
+            for s, satellite in satellites.items():
+                cost_first_level = satellite.cost_sourcing * pixel.demand_by_period[t]
+                cost_shipping = 0  # TODO cost_shipping_satellite[(s, k)] * pixel.demand_by_period[t]
                 cost_vehicles = (
-                    self.large_vehicle.cost_fixed
-                    * vehicles_required["large"][(k, t)]["fleet_size"]
+                    vehicle.cost_fixed * fleet_size_required[(s, k, t)]["fleet_size"]
                 )
 
-                total_cost = cost_shipping + cost_vehicles
-                costs[(k, t)] = {
+                total_cost = cost_first_level + cost_shipping + cost_vehicles
+                costs[(s, k, t)] = {
                     "total": total_cost,
+                    "first_level": cost_first_level,
                     "shipping": cost_shipping,
                     "vehicles": cost_vehicles,
                 }
-        return costs
+    return costs
 
-    def cost_serving(
-        self,
-        pixels: Dict[str, Pixel],
-        satellites: Dict[str, Satellite],
-        vehicles_required: Dict[str, dict],
-        cost_shipping: Dict[str, Any],
-    ) -> Dict[Any, float]:
-        """Calculate the cost of serving a pixel by period"""
-        cost_satellite_to_pixel_period = self.cost_satellite_to_pixel_by_period(
-            satellites,
-            pixels,
-            cost_shipping["satellite"],
-            vehicles_required,
-        )
-        cost_dc_to_pixel_period = self.cost_dc_to_pixel_by_period(
-            pixels,
-            cost_shipping["dc"],
-            vehicles_required,
-        )
-        return {
-            "dc": cost_dc_to_pixel_period,
-            "satellite": cost_satellite_to_pixel_period,
-        }
+
+def cost_dc_to_pixel(
+    pixels: Dict[str, Pixel],
+    periods: int,
+    vehicle: Vehicle,
+    fleet_size_required: Dict[str, dict],
+) -> Dict[Any, float]:
+    """Calculate the cost from DC to pixel by period"""
+    costs = {}
+    for t in range(periods):
+        for k in pixels.keys():
+            cost_shipping = 0  # TODO cost_shipping_dc[k] * pixel.demand_by_period[t]
+            cost_vehicles = (
+                vehicle.cost_fixed * fleet_size_required[(k, t)]["fleet_size"]
+            )
+
+            total_cost = cost_shipping + cost_vehicles
+            costs[(k, t)] = {
+                "total": total_cost,
+                "shipping": cost_shipping,
+                "vehicles": cost_vehicles,
+            }
+    return costs
+
+
+def get_cost_from_continuous_approximation(
+    pixels: Dict[str, Pixel],
+    satellites: Dict[str, Satellite],
+    vehicles: Dict[str, Vehicle],
+    fleet_size_required: Dict[Any, Dict],
+    periods: int,
+) -> Dict[str, Dict]:
+    """
+    Calculate the cost of serving a pixel by period
+    ----
+    returns:
+    - Dict[str, Dict]
+        the cost of serving a pixel by period, where the key is the echelon dc or satellite
+    """
+    cost_satellite_to_pixel_period = cost_satellite_to_pixel(
+        satellites=satellites,
+        pixels=pixels,
+        vehicle=vehicles["small"],
+        periods=periods,
+        fleet_size_required=fleet_size_required["satellite"],
+    )
+    cost_dc_to_pixel_period = cost_dc_to_pixel(
+        pixels=pixels,
+        periods=periods,
+        vehicle=vehicles["large"],
+        fleet_size_required=fleet_size_required["dc"],
+    )
+    return {
+        "dc": cost_dc_to_pixel_period,
+        "satellite": cost_satellite_to_pixel_period,
+    }
