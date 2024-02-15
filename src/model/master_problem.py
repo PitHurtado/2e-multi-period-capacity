@@ -8,6 +8,7 @@ from gurobipy import GRB, quicksum
 
 from src.classes import Satellite
 from src.instance.instance import Instance
+from src.instance.scenario import Scenario
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -25,7 +26,7 @@ class MasterProblem:
         # Instance
         self.periods: int = instance.periods
         self.satellites: Dict[str, Satellite] = instance.satellites
-        self.scenarios: Dict[str, Any] = instance.get_scenarios()
+        self.scenarios: Dict[str, Scenario] = instance.scenarios
 
         # Variables
         self.Y = {}
@@ -64,9 +65,9 @@ class MasterProblem:
         self.θ = dict(
             [
                 (
-                    (t, n),
+                    (n, t),
                     self.model.addVar(
-                        vtype=GRB.CONTINUOUS, lb=0.0, name=f"θ_t{t}_n{n}"
+                        vtype=GRB.CONTINUOUS, lb=0.0, name=f"θ_n{n}_t{t}"
                     ),
                 )
                 for t in range(self.periods)
@@ -83,15 +84,17 @@ class MasterProblem:
         logger.info("[MODEL] Computing lower bounds for the second stage cost")
         for t in range(self.periods):
             for n, scenario in self.scenarios.items():
-                LB[(t, n)] = np.sum(
+                LB[(n, t)] = np.sum(
                     [
                         np.min(
                             [
-                                scenario["costs"]["satellite"][(s, k, t)]["total"]
+                                scenario.get_cost_serving("satellite")[(s, k, t)][
+                                    "total"
+                                ]
                                 for s in self.satellites.keys()
                             ]
                         )
-                        for k in scenario["pixels"].keys()
+                        for k in scenario.pixels.keys()
                     ]
                 )
         logger.info(f"[MODEL] Lower bounds: {LB}")
@@ -114,7 +117,7 @@ class MasterProblem:
             1
             / len(scenarios)
             * quicksum(
-                [self.θ[(t, n)] for t in range(self.periods) for n in scenarios.keys()]
+                [self.θ[(n, t)] for t in range(self.periods) for n in scenarios.keys()]
             )
         )
 
@@ -139,8 +142,8 @@ class MasterProblem:
         # Lower bounds on the second-stage cost:
         for t in range(self.periods):
             for n in self.scenarios.keys():
-                if self.LB[(t, n)] > 0:
-                    self.model.addConstr(self.θ[(t, n)] >= self.LB[(t, n)])
+                if self.LB[(n, t)] > 0:
+                    self.model.addConstr(self.θ[(n, t)] >= self.LB[(n, t)])
 
     def get_objective_value(self):
         """Get the objective value of the model."""
