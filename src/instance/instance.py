@@ -30,7 +30,7 @@ class Instance:
         self,
         id_instance: str,
         capacity_satellites: Dict[str, int],
-        is_continuous_X: bool,
+        is_continuous_x: bool,
         alpha: float,
         beta: float,
         type_of_flexibility: int,
@@ -42,7 +42,7 @@ class Instance:
 
         # parameters
         self.capacity_satellites = capacity_satellites
-        self.is_continuous_X = is_continuous_X
+        self.is_continuous_x = is_continuous_x
         self.alpha = alpha
         self.beta = beta
         self.type_of_flexibility = type_of_flexibility
@@ -67,7 +67,7 @@ class Instance:
             f"---- Instance ----\n"
             f"ID of the instance: {self.id_instance}\n"
             f"Capacity of satellites: {self.capacity_satellites}\n"
-            f"Is continuous X: {self.is_continuous_X}\n"
+            f"Is continuous X: {self.is_continuous_x}\n"
             f"Alpha: {self.alpha}\n"
             f"Beta: {self.beta}\n"
             f"Type of flexibility: {self.type_of_flexibility}\n"
@@ -163,12 +163,10 @@ class Instance:
                 periods=self.periods,
                 fleet_size_required=fleet_size_required,
             )
-            cost_from_dc = costs["dc"]
-            cost_from_satellites = costs["satellite"]
         except Exception as error:
             logger.error(f"[calculate costs] File not found: {error}")
             raise error
-        return {"dc": cost_from_dc, "satellite": cost_from_satellites}
+        return costs
 
     def __compute_scenarios(self) -> Dict[str, Scenario]:
         """Computes the scenarios."""
