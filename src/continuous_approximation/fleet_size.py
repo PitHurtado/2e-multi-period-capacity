@@ -1,9 +1,11 @@
 """Module to define the configuration of the CA"""
 import logging
 import math
+import sys
 from typing import Any, Dict, Tuple
 
 from src.classes import Pixel, Satellite, Vehicle
+from src.constants import FEE_COST_FROM_DC, FEE_COST_FROM_SATELLITE
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -148,14 +150,55 @@ def cost_satellite_to_pixel(
     vehicle: Vehicle,
     periods: int,
     fleet_size_required: Dict[Tuple[str, str], float],
-) -> Dict[Tuple[str, str, int], float]:
+    distance_line_haul: Dict[Tuple[str, str], float],
+) -> Dict[Tuple[str, str, int], float]:  # pylint: disable=too-many-arguments
     """Calculate the cost from satellite to pixel by period"""
+    # cost of shipping from satellite to pixel
+    distance_average_from_satellites = {}
+    for s in satellites.keys():
+        min_distances, max_distances = sys.maxsize, -sys.maxsize - 1
+        for k in pixels.keys():
+            min_distances = (
+                min_distances
+                if distance_line_haul[(s, k)] > min_distances
+                else distance_line_haul[(s, k)]
+            )
+            max_distances = (
+                max_distances
+                if distance_line_haul[(s, k)] < max_distances
+                else distance_line_haul[(s, k)]
+            )
+        distance_average_from_satellites[s] = {
+            "min": min_distances,
+            "max": max_distances,
+            "interval": max_distances - min_distances,
+            "cost": 0.421 - 0.335,
+        }  # TODO: validate this cost
+    cost_shipping_from_satellites = dict(
+        [
+            (
+                (s, k),
+                distance_average_from_satellites[(s)]["cost"]
+                / distance_average_from_satellites[(s)]["interval"]
+                * (
+                    distance_line_haul[(s, k)]
+                    - distance_average_from_satellites[(s)]["min"]
+                )
+                + FEE_COST_FROM_SATELLITE,
+            )
+            for s in satellites.keys()
+            for k in pixels.keys()
+        ]
+    )
+    # compute the total cost
     costs = {}
     for t in range(periods):
         for k, pixel in pixels.items():
             for s, satellite in satellites.items():
                 cost_first_level = satellite.cost_sourcing * pixel.demand_by_period[t]
-                cost_shipping = 0  # TODO cost_shipping_satellite[(s, k)] * pixel.demand_by_period[t]
+                cost_shipping = (
+                    cost_shipping_from_satellites[(s, k)] * pixel.demand_by_period[t]
+                )
                 cost_vehicles = (
                     vehicle.cost_fixed * fleet_size_required[(s, k, t)]["fleet_size"]
                 )
@@ -175,12 +218,46 @@ def cost_dc_to_pixel(
     periods: int,
     vehicle: Vehicle,
     fleet_size_required: Dict[str, dict],
+    distance_line_haul: Dict[str, float],
 ) -> Dict[Any, float]:
     """Calculate the cost from DC to pixel by period"""
+    # cost of shipping from DC to pixel
+    distance_average_from_dc = {}
+    min_distances, max_distances = sys.maxsize, -sys.maxsize - 1
+    for k in pixels.keys():
+        min_distances = (
+            min_distances
+            if distance_line_haul[(k)] > min_distances
+            else distance_line_haul[(k)]
+        )
+        max_distances = (
+            max_distances
+            if distance_line_haul[(k)] < max_distances
+            else distance_line_haul[(k)]
+        )
+    distance_average_from_dc = {
+        "min": min_distances,
+        "max": max_distances,
+        "interval": max_distances - min_distances,
+        "cost": 0.389 - 0.264,
+    }  # TODO: validate this cost
+    cost_shipping_from_dc = dict(
+        [
+            (
+                k,
+                distance_average_from_dc["cost"]
+                / distance_average_from_dc["interval"]
+                * (distance_line_haul[(k)] - distance_average_from_dc["min"])
+                + FEE_COST_FROM_DC,
+            )
+            for k in pixels.keys()
+        ]
+    )
+    # compute the total cost
     costs = {}
     for t in range(periods):
-        for k in pixels.keys():
-            cost_shipping = 0  # TODO cost_shipping_dc[k] * pixel.demand_by_period[t]
+        for k, pixel in pixels.items():
+            cost_shipping = cost_shipping_from_dc[k] * pixel.demand_by_period[t]
             cost_vehicles = (
                 vehicle.cost_fixed * fleet_size_required[(k, t)]["fleet_size"]
             )
@@ -199,8 +276,9 @@ def get_cost_from_continuous_approximation(
     satellites: Dict[str, Satellite],
     vehicles: Dict[str, Vehicle],
     fleet_size_required: Dict[Any, Dict],
+    distance_line_haul: Dict[str, Dict],
     periods: int,
-) -> Dict[str, Dict]:
+) -> Dict[str, Dict]:  # pylint: disable=too-many-arguments
     """
     Calculate the cost of serving a pixel by period
     ----
@@ -214,12 +292,14 @@ def get_cost_from_continuous_approximation(
         vehicle=vehicles["small"],
         periods=periods,
         fleet_size_required=fleet_size_required["satellite"],
+        distance_line_haul=distance_line_haul["satellite"],
     )
     cost_dc_to_pixel_period = cost_dc_to_pixel(
         pixels=pixels,
         periods=periods,
         vehicle=vehicles["large"],
         fleet_size_required=fleet_size_required["dc"],
+        distance_line_haul=distance_line_haul["dc"],
     )
     return {
         "dc": cost_dc_to_pixel_period,

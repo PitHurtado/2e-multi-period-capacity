@@ -153,12 +153,19 @@ class Instance:
     ) -> Dict[str, Dict]:
         """Calculates the costs of the instance."""
         try:
+            matrix_satellite_pixels = Data.load_matrix_from_satellite()
+            matrix_dc_pixels = Data.load_matrix_from_dc()
+
             costs = get_cost_from_continuous_approximation(
                 pixels=pixels,
                 satellites=self.satellites,
                 vehicles=self.vehicles,
                 periods=self.periods,
                 fleet_size_required=fleet_size_required,
+                distance_line_haul={
+                    "satellite": matrix_satellite_pixels["distance"],
+                    "dc": matrix_dc_pixels["distance"],
+                },
             )
         except Exception as error:
             logger.error(f"[calculate costs] File not found: {error}")
@@ -189,7 +196,7 @@ class Instance:
 #     insta = Instance(
 #         id_instance="1",
 #         capacity_satellites={"small": 10, "large": 20},
-#         is_continuous_X=True,
+#         is_continuous_x=True,
 #         alpha=0.5,
 #         beta=0.5,
 #         type_of_flexibility=1,
