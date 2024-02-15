@@ -294,6 +294,9 @@ class Instance:
                 {
                     "pixels": self.pixels_by_scenarios[str(id_scenario)],
                     "costs": self.costs_by_scenarios[str(id_scenario)],
+                    "fleet_size_required": self.fleet_size_required_by_scenarios[
+                        str(id_scenario)
+                    ],
                 }
             )
         return scenarios
