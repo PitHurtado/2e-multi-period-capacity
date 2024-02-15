@@ -17,3 +17,4 @@ PATH_DATA_DISTANCES_FROM_DC = "./data/input_matrix_distance_dc_to_pixels.xlsx"
 PATH_ROOT_SCENARIO = "./data/scenarios/"
 
 PATH_SAMPLING_SCENARIO = PATH_ROOT_SCENARIO + "sampling/"
+PATH_BEST_SOLUTION_SAA = PATH_ROOT_SCENARIO + "best_solution_saa/"

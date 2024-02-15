@@ -1,0 +1,99 @@
+"""Module for the Sample Average Approximation (SAA) model."""
+
+import json
+import logging
+from typing import Any, Dict, List
+
+from src.constants import PATH_BEST_SOLUTION_SAA
+from src.instance.instance import Instance
+from src.model.branch_and_cut import Branch_and_Cut
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+
+class SampleAverageApproximation:
+    """Class to define the Sample Average Approximation (SAA) model"""
+
+    def __init__(self, experiment: Dict[str, Any], id_experiment: int):
+        self.experiment = experiment
+        self.id_experiment = id_experiment
+
+    def __create_branch_and_cut(self, instance: Instance) -> Branch_and_Cut:
+        """Return a Branch_and_Cut object."""
+        return Branch_and_Cut(instance)
+
+    def run(self) -> None:
+        """
+        Run one experiment of the SAA model determinate best solution.
+        -----
+        Params:
+            - experiment: Dict[str, Any]
+                contains instances train and evaluation
+        """
+        instances_train: Dict[str, Instance] = self.experiment["instances_train"]
+        instances_evaluation: Instance = self.experiment["instances_evaluation"]
+
+        # (1) Train the model
+        best_solutions: List[Dict[str, float]] = []
+        for n, instance in instances_train.items():
+            logger.info(
+                f"[SAA] ID experiment {self.id_experiment} -  Train model for instance {n}"
+            )
+            branch_and_cut: Branch_and_Cut = self.__create_branch_and_cut(instance)
+            branch_and_cut.solve(max_run_time=3600, warm_start=False)
+            current_solution: Dict[
+                str, float
+            ] = (
+                branch_and_cut.get_best_solution_allocation()
+            )  # TODO - check if this method exists
+
+            # check if the current solution is not in the best solutions
+            if not any(
+                key_current_solution in best_solution
+                for best_solution in best_solutions
+                for key_current_solution in current_solution.keys()
+            ):
+                best_solutions.append(current_solution)
+
+        logger.info(
+            f"[SAA] ID experiment {self.id_experiment} - Best solution: {best_solutions} for instances {instances_train.keys()}"
+        )
+
+        # (2) Evaluate the model
+        logger.info(
+            f"[SAA] ID experiment {self.id_experiment} - Evaluate model for instance \n {instances_evaluation}"
+        )
+        solutions_evaluation: List[Dict[str, float]] = []
+        for i, solution in enumerate(best_solutions):
+            bc_evaluation: Branch_and_Cut = self.__create_branch_and_cut(
+                instances_evaluation
+            )
+            bc_evaluation.solve_subproblem_evaluation(
+                solution
+            )  # TODO - check if this method exists
+            current_solution: Dict[str, float] = bc_evaluation.get_metrics_evaluation()
+            current_solution["id_experiment"] = self.id_experiment
+            current_solution["id_solution"] = i
+            current_solution["solution"] = solution
+            solutions_evaluation.append(current_solution)
+
+        # (3) select the best solution
+        best_solution: Dict[str, float] = min(
+            solutions_evaluation, key=lambda x: x["objective_value"]
+        )
+        logger.info(
+            f"[SAA] ID experiment {self.id_experiment} - Best solution: {best_solution}"
+        )
+
+        # (4) Save the best solution
+        path_json: str = (
+            PATH_BEST_SOLUTION_SAA + f"best_solution_{self.id_experiment}.json"
+        )
+        with open(path_json, "w") as file:
+            json.dump(best_solution, file)
+        logger.info(
+            f"[SAA] ID experiment {self.id_experiment} - Save best solution in {path_json}"
+        )
