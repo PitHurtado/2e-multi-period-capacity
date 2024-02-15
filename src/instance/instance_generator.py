@@ -36,16 +36,20 @@ class InstanceGenerator:
             N, capacity_satellites, is_continuous_X, alpha, beta, type_of_flexibility
         )
         for combination in combinations:
-            new_instances = {
-                "N": combination[0],
-                "capacity_satellites": combination[1],
-                "is_continuous_X": combination[2],
-                "alpha": combination[3],
-                "beta": combination[4],
-                "type_of_flexibility": combination[5],
-                "scenarios": self.__get_scenarios(combination[0]),
-            }
-            instances_list.append(new_instances)
+            instances_list.append(
+                Instance(
+                    id_instance=f"{combination[0]}_{combination[1]}_{combination[2]}_{combination[3]}_{combination[4]}_{combination[5]}",
+                    N=combination[0],
+                    M=self.M,
+                    capacity_satellites=combination[1],
+                    is_continuous_X=combination[2],
+                    alpha=combination[3],
+                    beta=combination[4],
+                    type_of_flexibility=combination[5],
+                    folder_path=self.folder_path,
+                    id_scenarios=self.__get_scenarios(combination[0]),
+                )
+            )
         logger.info(f"[Scenarios Generation] Generated {len(instances_list)} instances")
         # logger.info(f"[Scenarios Generation] Generated instances: {instances_list}")
         return instances_list

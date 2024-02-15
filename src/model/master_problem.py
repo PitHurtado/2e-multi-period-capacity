@@ -6,7 +6,7 @@ import gurobipy as gp
 import numpy as np
 from gurobipy import GRB, quicksum
 
-from classes import Satellite
+from src.classes import Satellite
 from src.instance.instance import Instance
 
 logger = logging.getLogger(__name__)

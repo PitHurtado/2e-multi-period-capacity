@@ -6,7 +6,7 @@ from typing import Any, Dict
 import gurobipy as gp
 from gurobipy import GRB, quicksum
 
-from classes import Pixel, Satellite
+from src.classes import Pixel, Satellite
 from src.instance.instance import Instance
 
 logger = logging.getLogger(__name__)

@@ -11,13 +11,15 @@ logging.basicConfig(
 
 if __name__ == "__main__":
     # (1) Generate instance:
-    instances = InstanceGenerator().get_instances()
+    folder_path = "../results/branch_and_cut/"
+    instances = InstanceGenerator(
+        N_testing=20, M=100, folder_path=folder_path
+    ).get_instances()
 
     # (2) Solve:
     run_time = 3600
     for instance in instances:
         logger.info(f"Solving instance {instance.id_instance}")
         main = Main(run_time)
-        folder_path = "../results/branch_and_cut/"
         main.solve(instance, folder_path)
         logger.info(f"Instance {instance.id_instance} solved")
