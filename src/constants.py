@@ -1,5 +1,10 @@
 """Constants for the application."""
 
+# Constants
+FEE_COST_FROM_SATELLITE = 0.1333
+FEE_COST_FROM_DC = 0.264
+
+
 # Paths
 PATH_DATA_SATELLITE = "./data/input_satellites.xlsx"
 PATH_DATA_PIXEL = "./data/input_pixels.xlsx"

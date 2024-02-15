@@ -19,9 +19,6 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-FEE_COST_FROM_DC = 0.264
-FEE_COST_FROM_SATELLITE = 0.264
-
 
 class Instance:
     """Class to define Instance"""
