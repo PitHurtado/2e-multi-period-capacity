@@ -30,14 +30,12 @@ class Data:
         """Load data from csv file and create a dictionary of satellites"""
         satellites = {}
         if not os.path.isfile(PATH_DATA_SATELLITE):
-            logger.error(f"File {PATH_DATA_SATELLITE} not found")
+            logger.error(f"[ETL] File {PATH_DATA_SATELLITE} not found")
             sys.exit(1)
-        logger.info(f"Loading data from satellites from path {PATH_DATA_SATELLITE}")
         df = pd.read_excel(PATH_DATA_SATELLITE)
         if df.empty:
-            logger.error(f"File {PATH_DATA_SATELLITE} is empty")
+            logger.error(f"[ETL] File {PATH_DATA_SATELLITE} is empty")
             sys.exit(1)
-        logger.info(f"Count of SATELLITES loaded: {len(df.index)}")
         for _, row in df.iterrows():
             id_satellite = str(row["id_satellite"])
             new_satellite = Satellite(
@@ -58,7 +56,7 @@ class Data:
                 logger.info(
                     "-" * 50 + "\n" + json.dumps(s.__dict__, indent=2, default=str)
                 )
-        logger.info("Loaded OK")
+        logger.info(f"[ETL] Count of SATELLITES loaded: {len(satellites)}")
         return satellites
 
     @staticmethod
@@ -66,14 +64,12 @@ class Data:
         """Load data from csv file and create a dictionary of pixels"""
         pixels = {}
         if not os.path.isfile(PATH_DATA_PIXEL):
-            logger.error(f"File {PATH_DATA_PIXEL} not found")
+            logger.error(f"[ETL] File {PATH_DATA_PIXEL} not found")
             sys.exit(1)
-        logger.info(f"Loading data from pixels from path {PATH_DATA_PIXEL}")
         df = pd.read_excel(PATH_DATA_PIXEL)
         if df.empty:
-            logger.error(f"File {PATH_DATA_PIXEL} is empty")
+            logger.error(f"[ETL] File {PATH_DATA_PIXEL} is empty")
             sys.exit(1)
-        logger.info(f"Count of PIXELS loaded: {len(df.index)}")
         for _, row in df.iterrows():
             id_pixel = str(row["id_pixel"])
             # create a new pixel
@@ -85,26 +81,23 @@ class Data:
                 speed_intra_stop=json.loads(row["speed_intra_stop"]),
             )
             pixels[id_pixel] = new_pixel
-        logger.info("Loaded OK")
         if show_data:
             for p in pixels.values():
                 logger.info(
                     "-" * 50 + "\n" + json.dumps(p.__dict__, indent=2, default=str)
                 )
+        # logger.info(f"[ETL] Count of PIXELS loaded: {len(pixels)}")
         return pixels
 
     @staticmethod
     def load_matrix_from_satellite() -> Dict[str, Dict]:
         """Load data from csv file and create a dictionary of distances and durations"""
         if not os.path.isfile(PATH_DATA_DISTANCES_FROM_SATELLITES):
-            logger.error(f"File {PATH_DATA_DISTANCES_FROM_SATELLITES} not found")
+            logger.error(f"[ETL] File {PATH_DATA_DISTANCES_FROM_SATELLITES} not found")
             sys.exit(1)
-        logger.info(
-            f"Loading data of durations and distance path {PATH_DATA_DISTANCES_FROM_SATELLITES}"
-        )
         df = pd.read_excel(PATH_DATA_DISTANCES_FROM_SATELLITES)
         if df.empty:
-            logger.error(f"File {PATH_DATA_DISTANCES_FROM_SATELLITES} is empty")
+            logger.error(f"[ETL] File {PATH_DATA_DISTANCES_FROM_SATELLITES} is empty")
             sys.exit(1)
         distance = {
             (row["id_satellite"], row["id_pixel"]): row["distance"]
@@ -123,21 +116,17 @@ class Data:
             "distance": distance,
             "travel_time_in_traffic": travel_time_in_traffic,
         }
-        logger.info("Loaded OK")
         return matrix
 
     @staticmethod
     def load_matrix_from_dc() -> Dict[str, Dict]:
         """Load data from csv file and create a dictionary of distances and durations"""
         if not os.path.isfile(PATH_DATA_DISTANCES_FROM_DC):
-            logger.error(f"File {PATH_DATA_DISTANCES_FROM_DC} not found")
+            logger.error(f"[ETL] File {PATH_DATA_DISTANCES_FROM_DC} not found")
             sys.exit(1)
-        logger.info(
-            f"Loading data of durations and distance path {PATH_DATA_DISTANCES_FROM_DC}"
-        )
         df = pd.read_excel(PATH_DATA_DISTANCES_FROM_DC)
         if df.empty:
-            logger.error(f"File {PATH_DATA_DISTANCES_FROM_DC} is empty")
+            logger.error(f"[ETL] File {PATH_DATA_DISTANCES_FROM_DC} is empty")
             sys.exit(1)
         distance = {(row["id_pixel"]): row["distance"] for _, row in df.iterrows()}
         travel_time = {
@@ -151,7 +140,6 @@ class Data:
             "distance": distance,
             "travel_time_in_traffic": travel_time_in_traffic,
         }
-        logger.info("Loaded OK")
         return matrix
 
     @staticmethod
@@ -160,12 +148,11 @@ class Data:
         base_pixels = Data.load_pixels(show_data)
         scenario_path = PATH_ROOT_SCENARIO + f"scenario_{id_scenario}.xlsx"
         if not os.path.isfile(scenario_path):
-            logger.error(f"File {scenario_path} not found")
+            logger.error(f"[ETL] File {scenario_path} not found")
             sys.exit(1)
-        logger.info(f"Loading data from scenario from path {scenario_path}")
         df = pd.read_excel(scenario_path)
         if df.empty:
-            logger.error(f"File {scenario_path} is empty")
+            logger.error(f"[ETL] File {scenario_path} is empty")
             sys.exit(1)
 
         pixels = {}
@@ -181,12 +168,14 @@ class Data:
                 pixel.stop_by_period = stop_by_period
                 pixel.drop_by_period = drop_by_period
                 pixels[id_pixel] = pixel
-        logger.info(f"Count of PIXELS loaded from instances: {len(pixels)}")
         if show_data:
             for p in pixels.values():
                 logger.info(
                     "-" * 50 + "\n" + json.dumps(p.__dict__, indent=2, default=str)
                 )
+        logger.info(
+            f"[ETL] Count of PIXELS loaded from instances: {len(pixels)} - scenario {id_scenario}"
+        )
         return pixels
 
     @staticmethod
@@ -218,8 +207,7 @@ class Data:
             max_time_services=12,
             k=1.3,
         )
-        logger.info("Loaded OK")
         logger.info(
-            f"Quantity of vehicles loaded: {len([vehicle_small, vehicle_large])}"
+            f"[ETL] Quantity of vehicles loaded: {len([vehicle_small, vehicle_large])}"
         )
         return {"small": vehicle_small, "large": vehicle_large}
