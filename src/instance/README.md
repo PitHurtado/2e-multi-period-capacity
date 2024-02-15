@@ -15,3 +15,11 @@ Instance parameters we have:
 8. `type_of_flexibility` - The type of flexibility to be considered.
    1. `type_of_flexibility = 1` - The flexibility is considered in the installation of satellites, i.e., if satellites are installed so that they have to operate always with the same capacity.
    2. `type_of_flexibility = 2` - The flexibility is considered in the installation and operation of satellites, i.e., if satellites are installed so that they can operate with different capacities.
+9. `periods` - The periods to be considered.
+10. `satellites` - The satellites to be installed.
+   1. `cost installation` - The cost of installing the satellite.
+   2. `cost operation` - The cost of operating the satellite.
+11. `scenarios` - The scenarios obtained from sampling the demand.
+   1. `pixel` - The pixel of the scenario.
+   2. `costs` - The costs of serving from DCs and satellites.
+   3. `fleet size required` - The fleet size required to serve the demand.
