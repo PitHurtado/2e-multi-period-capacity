@@ -39,7 +39,7 @@ class Main:
             "objective_value": objective_value,
             "best_bound_value": best_bound_value,
             "initial_upper_bound": initial_upper_bound,
-            "id_instance": instance.id_instance,  # TODO - check if this is necessary
+            "id_instance": instance.id_instance,
         }
         logger.info(f"[Main] Results: {results}")
         results.update(BC.get_metrics_from_fixed_solution(folder_path))
