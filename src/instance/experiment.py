@@ -108,7 +108,6 @@ class Experiment:
             )
 
             # evaluation instances
-
             id_instance = f"id_{index}_testing"
             instance_evaluation = Instance(
                 id_instance=id_instance,
