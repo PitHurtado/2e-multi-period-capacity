@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 import numpy as np
 
-from src.classes import Satellite, Vehicle
+from src.classes import Satellite
 from src.instance.instance import Instance
 from src.instance.scenario import Scenario
 from src.model.cuts import Cuts
@@ -31,7 +31,6 @@ class Branch_and_Cut:
         self.instance = instance
         self.satellites: Dict[str, Satellite] = instance.satellites
         self.scenarios: Dict[str, Scenario] = instance.scenarios
-        self.vehicles: Dict[str, Vehicle] = instance.vehicles
         self.periods = instance.periods
 
         # config params
@@ -47,7 +46,10 @@ class Branch_and_Cut:
         # self.MP.create_model(warm_start) # TODO - check if this is necessary
 
         # (2) Define Gurobi parameters and optimize:
-        logger.info("[BRANCH AND CUT] Start Branch and Cut algorithm")
+        logger.info(
+            "[BRANCH AND CUT] Start Branch and Cut algorithm - id instance: %s",
+            self.id_instance,
+        )
         self.MP.model.setParam("Timelimit", max_run_time)
         self.MP.model.Params.lazyConstraints = 1
         self.MP.model.setParam("Heuristics", 0)
@@ -57,7 +59,10 @@ class Branch_and_Cut:
         self.MP.set_start_time(start_time)
         self.Cuts.set_start_time(start_time)
         self.MP.model.optimize(Cuts.add_cuts)
-        logger.info("[BRANCH AND CUT] End Branch and Cut algorithm")
+        logger.info(
+            "[BRANCH AND CUT] End Branch and Cut algorithm - id instance: %s",
+            self.id_instance,
+        )
 
         # (3) Save metrics:
         logger.info("[BRANCH AND CUT] Save metrics")
@@ -73,6 +78,7 @@ class Branch_and_Cut:
     def get_metrics_evaluation(self):
         """Get metrics of the evaluation"""
         metrics = {
+            "id_instance": self.id_instance,
             "cost_installed_satellites": self.MP.model._cost_allocation_satellites.getValue(),
             "run_time": self.run_time,
             "optimality_gap": self.optimality_gap,
