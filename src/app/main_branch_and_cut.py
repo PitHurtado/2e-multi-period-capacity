@@ -42,7 +42,7 @@ class Main:
             "id_instance": instance.id_instance,  # TODO - check if this is necessary
         }
         logger.info(f"[Main] Results: {results}")
-        results.update(BC.get_metrics(folder_path))
+        results.update(BC.get_metrics_from_fixed_solution(folder_path))
 
         file_name = f"{folder_path}/id_instance_{instance.id_instance}_results.json"
         with open(file_name, "w") as f:
