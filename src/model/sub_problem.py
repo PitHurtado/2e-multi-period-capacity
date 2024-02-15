@@ -20,15 +20,12 @@ class SubProblem:
 
     def __init__(self, instance: Instance, period: int, scenario: Dict) -> None:
         """Initialize the sub problem."""
-        self.model = gp.Model(name="SubProblem")
-
         # Instance
         self.t: int = period
         self.satellites: Dict[str, Satellite] = instance.satellites
         self.type_of_flexibility: str = instance.type_of_flexibility
         self.is_continuous_X: bool = instance.is_continuous_X
 
-        # TODO - change to scenario
         self.pixels: Dict[str, Pixel] = scenario["pixels"]
         self.costs: Dict[str, Dict] = scenario["costs"]
         self.fleet_size_required: Dict[str, Any] = scenario["fleet_size_required"]
@@ -36,8 +33,20 @@ class SubProblem:
         # Create model
         self.model = self.__create_model()
 
+        # Variables
+        self.X = {}
+        self.Z = {}
+        self.W = {}
+
+        # Objective
+        self.objective = None
+        self.cost_operating_satellites = None
+        self.cost_served_from_satellite = None
+        self.cost_served_from_dc = None
+
     def __create_model(self):
         """Create the model."""
+        logger.info("[SUBPROBLEM] Creating sub problem model")
         return gp.Model(name="SubProblem")
 
     def __add_variables(
@@ -47,21 +56,35 @@ class SubProblem:
         fixed_y: Dict,
     ) -> None:
         """Add variables to the model."""
+        # 1. add variable X: binary variable to decide if a satellite is operating
         logger.info("[SUBPROBLEM] Adding variables to sub problem")
-        self.X = dict(
-            [
-                (
-                    (s, q_lower, self.t),
-                    self.model.addVar(vtype=GRB.BINARY, name=f"X_s{s}_t{self.t}"),
-                )
-                for s, satellite in satellites.items()
-                for q in satellite.capacity.keys()
-                for q_lower in satellite.capacity.keys()
-                if fixed_y[(s, q)] > 0.5
-                and q
-                >= q_lower  # only if the satellite is installed with higher capacity
-            ]
-        )
+        if self.type_of_flexibility == 1:  # only one capacity per satellite
+            self.X = dict(
+                [
+                    (
+                        (s, q, self.t),
+                        self.model.addVar(vtype=GRB.BINARY, name=f"X_s{s}_t{self.t}"),
+                    )
+                    for s, satellite in satellites.items()
+                    for q in satellite.capacity.keys()
+                    if fixed_y[(s, q)] > 0.5
+                ]
+            )
+        else:
+            self.X = dict(
+                [
+                    (
+                        (s, q_lower, self.t),
+                        self.model.addVar(vtype=GRB.BINARY, name=f"X_s{s}_t{self.t}"),
+                    )
+                    for s, satellite in satellites.items()
+                    for q in satellite.capacity.keys()
+                    for q_lower in satellite.capacity.keys()
+                    if fixed_y[(s, q)] > 0.5
+                    and q
+                    >= q_lower  # only if the satellite is installed with higher capacity
+                ]
+            )
         logger.info(f"Number of variables X: {len(self.X)}")
 
         # 2. add variable Z: binary variable to decide if a satellite is used to serve a pixel # noqa
@@ -119,16 +142,26 @@ class SubProblem:
     ) -> None:
         """Add objective function to the model."""
         # 1. add cost operating satellites
-        self.cost_operating_satellites = quicksum(
-            [
-                (satellite.cost_operation[q_lower][self.t])
-                * self.X[(s, q_lower, self.t)]
-                for s, satellite in satellites.items()
-                for q in satellite.capacity.keys()
-                for q_lower in satellite.capacity.keys()
-                if fixed_y[(s, q)] > 0.5 and q >= q_lower
-            ]
-        )
+        if self.type_of_flexibility == 1:
+            self.cost_operating_satellites = quicksum(
+                [
+                    (satellite.cost_operation[q][self.t]) * self.X[(s, q, self.t)]
+                    for s, satellite in satellites.items()
+                    for q in satellite.capacity.keys()
+                    if fixed_y[(s, q)] > 0.5
+                ]
+            )
+        else:
+            self.cost_operating_satellites = quicksum(
+                [
+                    (satellite.cost_operation[q_lower][self.t])
+                    * self.X[(s, q_lower, self.t)]
+                    for s, satellite in satellites.items()
+                    for q in satellite.capacity.keys()
+                    for q_lower in satellite.capacity.keys()
+                    if fixed_y[(s, q)] > 0.5 and q >= q_lower
+                ]
+            )
 
         # 2. add cost served from satellite
         self.cost_served_from_satellite = quicksum(
@@ -160,6 +193,7 @@ class SubProblem:
             + self.cost_served_from_satellite
             + self.cost_operating_satellites
         )
+        logger.info("[SUBPROBLEM] Adding objective function to sub problem")
         self.model.setObjective(self.objective, GRB.MINIMIZE)
 
     def solve_model(self, fixed_y, final_solution) -> None:
@@ -178,19 +212,7 @@ class SubProblem:
                             self.X[(s, q, self.t)] == 1,
                             name=nameConstraint,
                         )
-        # TODO - check if it is necessary due to this is considering in definition of variables # noqa
-        # elif self.type_of_flexibility == 2:
-        #     for s, satellite in self.satellites.items():
-        #         for q in satellite.capacity.keys():
-        #             for q_lower in satellite.capacity.keys():
-        #                 if fixed_y[(s, q)] > 0.5 and q >= q_lower:
-        #                     nameConstraint = f"R_Operating_s{s}_q{q_lower}_t{self.t}"
-        #                     self.model.addConstr(
-        #                         self.X[(s, q_lower, self.t)] <= 1,
-        #                         name=nameConstraint,
-        #                     )
 
-        # (2) capacity satellite
         for s, satellite in self.satellites.items():
             if (
                 len(
@@ -244,7 +266,16 @@ class SubProblem:
                                 self.X[(s, q_lower, self.t)]
                                 for q in satellite.capacity.keys()
                                 for q_lower in satellite.capacity.keys()
-                                if fixed_y[(s, q)] > 0.5 and q >= q_lower
+                                if (
+                                    self.type_of_flexibility != 1
+                                    and fixed_y[(s, q)] > 0.5
+                                    and q >= q_lower
+                                )
+                                or (
+                                    self.type_of_flexibility == 1
+                                    and fixed_y[(s, q)] > 0.5
+                                    and q == q_lower
+                                )
                             ]
                         )
                         <= 0,
@@ -285,7 +316,9 @@ class SubProblem:
             run_time = round(time.time() - start_time, 3)
             total_cost = self.model._total_cost.getValue()
 
-            self.model.dispose()  # TODO - check if it is necessary
+            self.model.dispose()
+            logger.info("[SUBPROBLEM] Sub problem solved")
+            logger.info(f"Run time: {run_time}")
 
             return run_time, total_cost
 
@@ -328,7 +361,9 @@ class SubProblem:
                 if self.model._w[(k, self.t)].x > 0
             }
 
-            self.model.dispose()  # TODO - check if it is necessary
+            self.model.dispose()
+            logger.info("[SUBPROBLEM] Sub problem solved")
+            logger.info(f"Run time: {run_time}")
 
             total_cost = {
                 "sp_total_cost": total_cost,
