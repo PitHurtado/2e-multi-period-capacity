@@ -8,6 +8,7 @@ from gurobipy import GRB, quicksum
 
 from src.classes import Pixel, Satellite
 from src.instance.instance import Instance
+from src.instance.scenario import Scenario
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -18,20 +19,21 @@ logging.basicConfig(
 class SubProblem:
     """Class for the sub problem of the stochastic model."""
 
-    def __init__(self, instance: Instance, period: int, scenario: Dict) -> None:
+    def __init__(self, instance: Instance, period: int, scenario: Scenario) -> None:
         """Initialize the sub problem."""
-        # Instance
+        # params from instance
         self.t: int = period
         self.satellites: Dict[str, Satellite] = instance.satellites
         self.type_of_flexibility: str = instance.type_of_flexibility
-        self.is_continuous_X: bool = instance.is_continuous_X
+        self.is_continuous_x: bool = instance.is_continuous_x
 
-        self.pixels: Dict[str, Pixel] = scenario["pixels"]
-        self.costs: Dict[str, Dict] = scenario["costs"]
-        self.fleet_size_required: Dict[str, Any] = scenario["fleet_size_required"]
+        # params from scenario
+        self.pixels: Dict[str, Pixel] = scenario.pixels
+        self.costs_serving: Dict[str, Dict] = scenario.get_cost_serving()
+        self.fleet_size_required: Dict[str, Any] = scenario.get_fleet_size_required()
 
         # Create model
-        self.model = self.__create_model()
+        self.model = gp.Model(name="SubProblem")
 
         # Variables
         self.X = {}
@@ -43,11 +45,6 @@ class SubProblem:
         self.cost_operating_satellites = None
         self.cost_served_from_satellite = None
         self.cost_served_from_dc = None
-
-    def __create_model(self):
-        """Create the model."""
-        logger.info("[SUBPROBLEM] Creating sub problem model")
-        return gp.Model(name="SubProblem")
 
     def __add_variables(
         self,
@@ -63,7 +60,9 @@ class SubProblem:
                 [
                     (
                         (s, q, self.t),
-                        self.model.addVar(vtype=GRB.BINARY, name=f"X_s{s}_t{self.t}"),
+                        self.model.addVar(
+                            vtype=GRB.BINARY, name=f"X_s{s}_q{q}_t{self.t}"
+                        ),
                     )
                     for s, satellite in satellites.items()
                     for q in satellite.capacity.keys()
@@ -75,7 +74,9 @@ class SubProblem:
                 [
                     (
                         (s, q_lower, self.t),
-                        self.model.addVar(vtype=GRB.BINARY, name=f"X_s{s}_t{self.t}"),
+                        self.model.addVar(
+                            vtype=GRB.BINARY, name=f"X_s{s}_q_{q_lower}_t{self.t}"
+                        ),
                     )
                     for s, satellite in satellites.items()
                     for q in satellite.capacity.keys()
@@ -104,16 +105,11 @@ class SubProblem:
                         ub=1.0,
                     ),
                 )
-                for s in satellites.keys()
+                for s, satellite in satellites.items()
                 for k in pixels.keys()
-                if len(
-                    [
-                        fixed_y[(s, q)]
-                        for q in satellites.capacity.keys()
-                        if fixed_y[(s, q)] > 0.5
-                    ]
-                )
-                > 0  # only if the satellite is installed
+                if any(
+                    fixed_y[(s, q)] > 0.5 for q in satellite.capacity.keys()
+                )  # only if the satellite is installed
             ]
         )
         logger.info(f"Number of variables Z: {len(self.Z)}")
@@ -167,16 +163,11 @@ class SubProblem:
         self.cost_served_from_satellite = quicksum(
             [
                 costs["satellite"][(s, k, self.t)]["total"] * self.Z[(s, k, self.t)]
-                for s in satellites.keys()
+                for s, satellite in satellites.items()
                 for k in pixels.keys()
-                if len(
-                    [
-                        fixed_y[(s, q)]
-                        for q in satellites.capacity.keys()
-                        if fixed_y[(s, q)] > 0.5
-                    ]
-                )
-                > 0  # only if the satellite is installed
+                if any(
+                    fixed_y[(s, q)] > 0.5 for q in satellite.capacity.keys()
+                )  # only if the satellite is installed
             ]
         )
 
@@ -196,10 +187,10 @@ class SubProblem:
         logger.info("[SUBPROBLEM] Adding objective function to sub problem")
         self.model.setObjective(self.objective, GRB.MINIMIZE)
 
-    def solve_model(self, fixed_y, final_solution) -> None:
-        """Solve the model."""
+    def solve_model(self, fixed_y: Dict[Any, float], final_solution: bool) -> None:
+        """Solve the model of the sub problem considering the fixed y."""
         self.__add_variables(self.satellites, self.pixels, fixed_y)
-        self.__add_objective(self.satellites, self.pixels, self.costs, fixed_y)
+        self.__add_objective(self.satellites, self.pixels, self.costs_serving, fixed_y)
 
         # Add Constraints
         # (1) operating satellite
@@ -214,22 +205,13 @@ class SubProblem:
                         )
 
         for s, satellite in self.satellites.items():
-            if (
-                len(
-                    [
-                        fixed_y[(s, q)]
-                        for q in satellite.capacity.keys()
-                        if fixed_y[(s, q)] > 0.5
-                    ]
-                )
-                > 0
-            ):
+            if any(fixed_y[(s, q)] > 0.5 for q in satellite.capacity.keys()):
                 nameConstraint = f"R_capacity_s{s}_t{self.t}"
                 self.model.addConstr(
                     quicksum(
                         [
                             self.Z[(s, k, self.t)]
-                            * self.fleet_size_required["small"][(s, k, self.t)][
+                            * self.fleet_size_required["satellite"][(s, k, self.t)][
                                 "fleet_size"
                             ]
                             for k in self.pixels.keys()
@@ -248,16 +230,7 @@ class SubProblem:
         # (3) assign pixel to satellite
         for k in self.pixels.keys():
             for s, satellite in self.satellites.items():
-                if (
-                    len(
-                        [
-                            fixed_y[(s, q)]
-                            for q in satellite.capacity.keys()
-                            if fixed_y[(s, q)] > 0.5
-                        ]
-                    )
-                    > 0
-                ):
+                if any(fixed_y[(s, q)] > 0.5 for q in satellite.capacity.keys()):
                     nameConstratint = f"R_Assign_s{s}_k{k}_t{self.t}"
                     self.model.addConstr(
                         self.Z[(s, k, self.t)]
@@ -290,14 +263,7 @@ class SubProblem:
                     [
                         self.Z[(s, k, self.t)]
                         for s, satellite in self.satellites.items()
-                        if len(
-                            [
-                                fixed_y[(s, q)]
-                                for q in satellite.capacity.keys()
-                                if fixed_y[(s, q)] > 0.5
-                            ]
-                        )
-                        > 0
+                        if any(fixed_y[(s, q)] > 0.5 for q in satellite.capacity.keys())
                     ]
                 )
                 + quicksum([self.W[(k, self.t)]])
