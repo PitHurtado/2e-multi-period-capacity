@@ -49,7 +49,6 @@ class SubProblem:
     ) -> None:
         """Add variables to the model."""
         # 1. add variable X: binary variable to decide if a satellite is operating
-        logger.info("[SUBPROBLEM] Adding variables to sub problem")
         if self.type_of_flexibility == 1:  # only one capacity per satellite
             self.X = dict(
                 [
@@ -84,7 +83,6 @@ class SubProblem:
         logger.info(f"Number of variables X: {len(self.X)}")
 
         # 2. add variable Z: binary variable to decide if a satellite is used to serve a pixel # noqa
-        logger.info("[SUBPROBLEM] Add variable Z")
         if not self.is_continuous_x:
             type_variable = GRB.BINARY
         else:
@@ -110,7 +108,6 @@ class SubProblem:
         logger.info(f"Number of variables Z: {len(self.Z)}")
 
         # 3. add variable W: binary variable to decide if a pixel is served from dc
-        logger.info("[SUBPROBLEM] Add variable W")
         self.W = dict(
             [
                 (
@@ -179,13 +176,13 @@ class SubProblem:
             + self.cost_served_from_satellite
             + self.cost_operating_satellites
         )
-        logger.info("[SUBPROBLEM] Adding objective function to sub problem")
         self.model.setObjective(self.objective, GRB.MINIMIZE)
 
     def solve_model(self, fixed_y: Dict[Any, float], final_solution: bool) -> None:
         """Solve the model of the sub problem considering the fixed y."""
         # Create model
         self.model = gp.Model(name="SubProblem")
+        logger.info("[SUBPROBLEM] Model created")
         self.__add_variables(self.satellites, self.pixels, fixed_y)
         self.__add_objective(self.satellites, self.pixels, self.costs_serving, fixed_y)
 
@@ -279,9 +276,10 @@ class SubProblem:
             run_time = round(time.time() - start_time, 3)
             total_cost = self.model._total_cost.getValue()
 
+            logger.info(
+                f"[SUBPROBLEM] Sub problem solved - Run time: {run_time} - Total cost: {total_cost}"
+            )
             self.model.dispose()
-            logger.info("[SUBPROBLEM] Sub problem solved")
-            logger.info(f"Run time: {run_time}")
 
             return run_time, total_cost
 
@@ -299,6 +297,9 @@ class SubProblem:
 
             run_time = round(time.time() - start_time, 3)
             total_cost = self.model._total_cost.getValue()
+            logger.info(
+                f"[SUBPROBLEM] Sub problem solved - Run time: {run_time} - Total cost: {total_cost}"
+            )
 
             # get solution
             cost_served_from_dc = self.cost_served_from_dc.getValue()
@@ -307,23 +308,19 @@ class SubProblem:
 
             # save relevant information
             x_values = {
-                (s, q, self.t): round(self.model._x[(s, q, self.t)].x)
-                for s, satellite in self.satellites.items()
-                for q in satellite.capacity.keys()
-                if any(fixed_y[(s, q)] > 0.5 for q in satellite.capacity.keys())
-                and self.model._x[(s, q, self.t)].X > 0
+                keys: round(self.model._x[keys].x)
+                for keys in self.model._x.keys()
+                if self.model._x[keys].x > 0.5
             }
             z_values = {
-                (s, k, self.t): round(self.model._z[(s, k, self.t)].x)
-                for s in self.satellites.keys()
-                for k in self.pixels.keys()
-                if any(fixed_y[(s, q)] > 0.5 for q in satellite.capacity.keys())
-                and self.model._z[(s, k, self.t)].X > 0
+                keys: round(self.model._z[keys].x)
+                for keys in self.model._z.keys()
+                if self.model._z[keys].x > 0.5
             }
             w_values = {
-                (k, self.t): round(self.model._w[(k, self.t)].x)
-                for k in self.pixels.keys()
-                if self.model._w[(k, self.t)].X > 0
+                keys: round(self.model._w[keys].x)
+                for keys in self.model._w.keys()
+                if self.model._w[keys].x > 0.5
             }
 
             self.model.dispose()
