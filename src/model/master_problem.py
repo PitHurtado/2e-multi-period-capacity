@@ -1,6 +1,5 @@
 """Module for the master problem of the stochastic model."""
-import logging
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
 import gurobipy as gp
 import numpy as np
@@ -9,11 +8,7 @@ from gurobipy import GRB, quicksum
 from src.classes import Satellite
 from src.instance.instance import Instance
 from src.instance.scenario import Scenario
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+from src.utils import LOGGER as logger
 
 
 class MasterProblem:
@@ -33,7 +28,7 @@ class MasterProblem:
         self.θ = {}
 
         # Parameters Lower Bound
-        self.LB = self.__compute_lower_bound()
+        self.LB: Dict[Tuple[str, int], float] = self.__compute_lower_bound()
 
     def build(self) -> None:
         """Build the master problem."""

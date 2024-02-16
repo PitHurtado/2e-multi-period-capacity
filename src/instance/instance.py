@@ -1,6 +1,5 @@
 """Module of class instances."""
 import json
-import logging
 import os
 import random
 from typing import Dict, List
@@ -13,11 +12,7 @@ from src.continuous_approximation.fleet_size import (
 )
 from src.etl import Data
 from src.instance.scenario import Scenario
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+from src.utils import LOGGER as logger
 
 
 class Instance:

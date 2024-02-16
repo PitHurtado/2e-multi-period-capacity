@@ -1,14 +1,11 @@
 """Module to define the configuration of the CA"""
-import logging
 import math
 import sys
 from typing import Any, Dict, Tuple
 
 from src.classes import Pixel, Satellite, Vehicle
 from src.constants import FEE_COST_FROM_DC, FEE_COST_FROM_SATELLITE
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+from src.utils import LOGGER as logger
 
 
 class ContinuousApproximationConfig:

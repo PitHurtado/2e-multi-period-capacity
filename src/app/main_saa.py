@@ -1,14 +1,9 @@
 """Main module for the SAA application."""
-import logging
 from typing import Any, Dict, List
 
 from src.instance.experiment import Experiment
 from src.model.sample_average_approximation import SampleAverageApproximation
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+from src.utils import LOGGER as logger
 
 if __name__ == "__main__":
     # (1) Generate instance:

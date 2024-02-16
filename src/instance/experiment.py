@@ -1,14 +1,9 @@
 """Module of instance generator."""
 import itertools
-import logging
 from typing import Any, Dict, List
 
 from src.instance.instance import Instance
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+from src.utils import LOGGER as logger
 
 
 class Experiment:

@@ -1,5 +1,4 @@
 """Module to solve the Branch and Cut algorithm"""
-import logging
 import time
 from typing import Any, Dict
 
@@ -11,11 +10,7 @@ from src.instance.scenario import Scenario
 from src.model.cuts import Cuts
 from src.model.master_problem import MasterProblem
 from src.model.sub_problem import SubProblem
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+from src.utils import LOGGER as logger
 
 
 class Branch_and_Cut:
@@ -24,7 +19,8 @@ class Branch_and_Cut:
     def __init__(self, instance: Instance):
         # solvers
         self.MP = MasterProblem(instance)
-        self.Cuts = Cuts(instance)
+        self.MP.build()
+        self.Cuts = Cuts(instance, self.MP.LB)
 
         # Params
         self.instance: Instance = instance
@@ -103,7 +99,7 @@ class Branch_and_Cut:
         sp_run_time, sp_total_cost, sp_solution = sub_problem.solve_model(
             solution, True
         )
-        return sp_total_cost
+        return sp_total_cost["sp_total_cost"]
 
     def solve_evaluation(self, solution: Dict[Any, float]) -> float:
         """Solve the subproblem for the evaluation"""

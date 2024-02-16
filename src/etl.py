@@ -1,6 +1,5 @@
 """Module to get data from csv file"""
 import json
-import logging
 import os
 import sys
 from typing import Dict
@@ -15,9 +14,7 @@ from src.constants import (
     PATH_DATA_SATELLITE,
     PATH_ROOT_SCENARIO,
 )
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+from src.utils import LOGGER as logger
 
 
 class Data:
