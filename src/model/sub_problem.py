@@ -1,5 +1,4 @@
 """Module for the sub problem of the stochastic model."""
-import logging
 import time
 from typing import Any, Dict
 
@@ -9,11 +8,7 @@ from gurobipy import GRB, quicksum
 from src.classes import Pixel, Satellite
 from src.instance.instance import Instance
 from src.instance.scenario import Scenario
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+from src.utils import LOGGER as logger
 
 
 class SubProblem:
@@ -33,7 +28,7 @@ class SubProblem:
         self.fleet_size_required: Dict[str, Any] = scenario.get_fleet_size_required()
 
         # Create model
-        self.model = gp.Model(name="SubProblem")
+        self.model = None
 
         # Variables
         self.X = {}
@@ -90,7 +85,7 @@ class SubProblem:
 
         # 2. add variable Z: binary variable to decide if a satellite is used to serve a pixel # noqa
         logger.info("[SUBPROBLEM] Add variable Z")
-        if not self.is_continuous_X:
+        if not self.is_continuous_x:
             type_variable = GRB.BINARY
         else:
             type_variable = GRB.CONTINUOUS
@@ -189,6 +184,8 @@ class SubProblem:
 
     def solve_model(self, fixed_y: Dict[Any, float], final_solution: bool) -> None:
         """Solve the model of the sub problem considering the fixed y."""
+        # Create model
+        self.model = gp.Model(name="SubProblem")
         self.__add_variables(self.satellites, self.pixels, fixed_y)
         self.__add_objective(self.satellites, self.pixels, self.costs_serving, fixed_y)
 
@@ -313,18 +310,20 @@ class SubProblem:
                 (s, q, self.t): round(self.model._x[(s, q, self.t)].x)
                 for s, satellite in self.satellites.items()
                 for q in satellite.capacity.keys()
-                if self.model._x[(s, q, self.t)].x > 0
+                if any(fixed_y[(s, q)] > 0.5 for q in satellite.capacity.keys())
+                and self.model._x[(s, q, self.t)].X > 0
             }
             z_values = {
                 (s, k, self.t): round(self.model._z[(s, k, self.t)].x)
                 for s in self.satellites.keys()
                 for k in self.pixels.keys()
-                if self.model._z[(s, k, self.t)].x > 0
+                if any(fixed_y[(s, q)] > 0.5 for q in satellite.capacity.keys())
+                and self.model._z[(s, k, self.t)].X > 0
             }
             w_values = {
                 (k, self.t): round(self.model._w[(k, self.t)].x)
                 for k in self.pixels.keys()
-                if self.model._w[(k, self.t)].x > 0
+                if self.model._w[(k, self.t)].X > 0
             }
 
             self.model.dispose()
