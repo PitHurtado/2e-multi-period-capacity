@@ -1,17 +1,12 @@
 """Module for the Sample Average Approximation (SAA) model."""
 
 import json
-import logging
 from typing import Any, Dict, List
 
 from src.constants import PATH_BEST_SOLUTION_SAA
 from src.instance.instance import Instance
 from src.model.branch_and_cut import Branch_and_Cut
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+from src.utils import LOGGER as logger
 
 
 class SampleAverageApproximation:
@@ -78,7 +73,7 @@ class SampleAverageApproximation:
             solutions_evaluation.append(current_solution)
 
         # (3) select the best solution
-        best_solution: Dict[str, float] = min(
+        best_solution: Dict[Any, float] = min(
             solutions_evaluation, key=lambda x: x["objective_value"]
         )
         logger.info(
