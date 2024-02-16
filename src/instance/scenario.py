@@ -26,7 +26,7 @@ class Scenario:
         """Return a string representation of the scenario."""
         return f"Scenario {self.id_scenario} with {len(self.pixels)} pixels and {self.periods} periods"  # pylint: disable=line-too-long
 
-    def get_fleet_size_required(self, echelon: str) -> Dict[Any, float]:
+    def get_fleet_size_required(self, echelon: str = None) -> Dict[Any, float]:
         """Return the fleet size required for a given echelon and period
         ----
         Params:
@@ -37,10 +37,12 @@ class Scenario:
         - Dict[Any, float]
             the fleet size required for a given echelon
         """
+        if echelon is None:
+            return self.fleet_size_required
         return self.fleet_size_required[echelon]
 
-    def get_cost_serving(self, echelon: str) -> Dict[Any, float]:
-        """Return the total costs for a given echelon and period
+    def get_cost_serving(self, echelon: str = None) -> Dict[Any, float]:
+        """Return the costs of serving for a given echelon and period
         ----
         Params:
         - echelon: str
@@ -50,7 +52,9 @@ class Scenario:
         - Dict[Any, float]
             the total costs for a given echelon
         """
-        return self.costs[echelon]["total"]
+        if echelon is None:
+            return self.costs
+        return self.costs[echelon]
 
     def get_periods(self) -> int:
         """Return the number of periods"""

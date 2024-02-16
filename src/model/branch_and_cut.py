@@ -49,11 +49,12 @@ class Branch_and_Cut:
             "[BRANCH AND CUT] Start Branch and Cut algorithm - id instance: %s",
             self.instance.id_instance,
         )
+        logger.info(f"[BRANCH AND CUT] Instance: \n {self.instance}")
         self.MP.model.setParam("Timelimit", max_run_time)
         self.MP.model.Params.lazyConstraints = 1
         self.MP.model.setParam("Heuristics", 0)
         self.MP.model.setParam("MIPGap", 0.001)
-        self.MP.model.setParam("Threads", 12)
+        self.MP.model.setParam("Threads", 10)
         start_time = time.time()
         self.MP.set_start_time(start_time)
         self.Cuts.set_start_time(start_time)
@@ -65,10 +66,16 @@ class Branch_and_Cut:
 
         # (3) Save metrics:
         logger.info("[BRANCH AND CUT] Save metrics")
-        self.run_time = round(time.time() - start_time, 3)
-        self.optimality_gap = round(100 * self.MP.model.MIPGap, 3)
-        self.objective_value = round(self.MP.get_objective_value(), 3)
-        self.MP.model.dispose()
+        try:
+            self.run_time = round(time.time() - start_time, 3)
+            self.optimality_gap = round(100 * self.MP.model.MIPGap, 3)
+            self.objective_value = round(self.MP.get_objective_value(), 3)
+            self.MP.model.dispose()
+        except AttributeError:
+            logger.error(
+                "[BRANCH AND CUT] Error while saving metrics - id instance: %s",
+                self.instance.id_instance,
+            )
 
     def get_best_solution_allocation(self):
         """Get the best solution allocation"""

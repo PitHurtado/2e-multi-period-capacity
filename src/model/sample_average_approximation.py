@@ -34,7 +34,7 @@ class SampleAverageApproximation:
                 contains instances train and evaluation
         """
         instances_train: Dict[str, Instance] = self.experiment["instances_train"]
-        instances_evaluation: Instance = self.experiment["instances_evaluation"]
+        instances_evaluation: Instance = self.experiment["instance_evaluation"]
 
         # (1) Train the model
         best_solutions: List[Dict[Any, float]] = []

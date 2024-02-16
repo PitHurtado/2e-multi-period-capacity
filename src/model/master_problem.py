@@ -21,7 +21,7 @@ class MasterProblem:
 
     def __init__(self, instance: Instance) -> None:
         """Initialize the master problem."""
-        self.model = gp.Model(name="MasterProblem")
+        self.model: gp.Model = gp.Model(name="MasterProblem")
 
         # Instance
         self.periods: int = instance.periods
