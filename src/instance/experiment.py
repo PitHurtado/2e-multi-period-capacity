@@ -67,7 +67,7 @@ class Experiment:
         return info_combinations
 
     def generate_instances(self, debug: bool = False) -> List[Dict[str, Any]]:
-        """Generate instances for training."""
+        """Generate instances for training and evaluation. Return a list of instances."""
         combinations = self.__get_combinations()
         experiments = []
         index = 0

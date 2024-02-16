@@ -2,12 +2,13 @@
 import logging
 import sys
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from gurobipy import GRB, quicksum
 
-from src.classes import Satellite, Vehicle
+from src.classes import Satellite
 from src.instance.instance import Instance
+from src.model.master_problem import MasterProblem
 from src.model.sub_problem import SubProblem
 
 logger = logging.getLogger(__name__)
@@ -20,13 +21,15 @@ class Cuts:
     """Class to define the Cut Generator"""
 
     def __init__(self, instance: Instance):
+        # solver SP
         Cuts.SPs: Dict[Any, SubProblem] = self.__create_subproblems(instance)
+
+        # parameters
         Cuts.periods: int = instance.periods
         Cuts.satellites: Dict[str, Satellite] = instance.satellites
-        Cuts.vehicles: Dict[str, Vehicle] = instance.vehicles
+        Cuts.instance = instance
 
-        Cuts.id_scenarios: List[int] = instance.id_scenarios
-
+        # configs parameters
         Cuts.optimality_cuts = 0
         Cuts.best_solution = {}
         Cuts.upper_bound_updated = 0
@@ -43,7 +46,7 @@ class Cuts:
         logger.info(f"[CUT] Optimality cuts: {Cuts.optimality_cuts}")
 
     @staticmethod
-    def add_cut_integer_solution(model) -> None:
+    def add_cut_integer_solution(model: MasterProblem) -> None:
         """Add optimality cuts and LBF cuts"""
         # retrieve current solution
         Y = model.cbGetSolution(model._Y)
@@ -51,23 +54,20 @@ class Cuts:
         current_solution_cost = model._total_cost.getValue()
 
         for t in range(Cuts.periods):
-            for n in Cuts.id_scenarios:
-                subproblem_run_time, subproblem_cost = Cuts.SPs[(t, n)].solve_model(
-                    Y, False
-                )
+            for n in Cuts.instance.scenarios.keys():
+                _, subproblem_cost = Cuts.SPs[(n, t)].solve_model(Y, False)
                 Cuts.subproblem_solved += 1
                 current_solution_cost += subproblem_cost
 
-                if θ[(t, n)] < subproblem_cost:
+                if θ[(n, t)] < subproblem_cost:
                     # Create the activation function:
-                    act_functon = Cuts.get_activation_function(
-                        model, Y, subproblem_cost, n, t
-                    )
+                    act_functon = Cuts.get_activation_function(model, Y)
 
                     # Add the optimality cut:
                     model.cbLazy(
-                        θ[(t, n)]
-                        >= model.LB + (subproblem_cost - model.LB) * act_functon
+                        θ[(n, t)]
+                        >= model.LB[(n, t)]
+                        + (subproblem_cost - model.LB[(n, t)]) * act_functon
                     )
                     Cuts.optimality_cuts += 1
 
@@ -107,15 +107,9 @@ class Cuts:
         """Create the subproblems"""
         subproblems = {}
         for t in range(instance.periods):
-            for n in instance.id_scenarios:
-                scenario = {
-                    "pixels": instance.pixels_by_scenarios[str(n)],
-                    "costs": instance.costs_by_scenarios[str(n)],
-                    "fleet_size_required": instance.fleet_size_required_by_scenarios[
-                        str(n)
-                    ],
-                }
-                subproblems[(t, n)] = SubProblem(instance, t, scenario)
+            for n in instance.scenarios.keys():
+                scenario = instance.scenarios[n]
+                subproblems[(n, t)] = SubProblem(instance, t, scenario)
         return subproblems
 
     @staticmethod
