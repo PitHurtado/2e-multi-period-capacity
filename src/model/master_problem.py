@@ -140,6 +140,18 @@ class MasterProblem:
                 if self.LB[(n, t)] > 0:
                     self.model.addConstr(self.θ[(n, t)] >= self.LB[(n, t)])
 
+        # dummy constraint
+        self.model.addConstr(
+            quicksum(
+                [
+                    self.Y[(s, q)]
+                    for s in satellites.keys()
+                    for q in satellites[s].capacity.keys()
+                ]
+            )
+            == 1
+        )
+
     def get_objective_value(self):
         """Get the objective value of the model."""
         logger.info("[MODEL] Getting objective value")
