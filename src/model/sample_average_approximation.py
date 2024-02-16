@@ -84,8 +84,9 @@ class SampleAverageApproximation:
         path_json: str = (
             PATH_BEST_SOLUTION_SAA + f"best_solution_{self.id_experiment}.json"
         )
-        with open(path_json, "w") as file:
-            json.dump(best_solution, file)
+        print(best_solution)
+        # with open(path_json, "w") as file:
+        #     json.dump(best_solution, file)
         logger.info(
             f"[SAA] ID experiment {self.id_experiment} - Save best solution in {path_json}"
         )
