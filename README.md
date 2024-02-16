@@ -1,4 +1,4 @@
 # Description
 
 # imagen of architecture
-![Arquitectura](docs/img/arqui.png)
+![Arquitectura](docs/img/arqui.svg)
