@@ -27,8 +27,7 @@ class Branch_and_Cut:
         self.Cuts = Cuts(instance)
 
         # Params
-        self.id_instance = instance.id_instance
-        self.instance = instance
+        self.instance: Instance = instance
         self.satellites: Dict[str, Satellite] = instance.satellites
         self.scenarios: Dict[str, Scenario] = instance.scenarios
         self.periods = instance.periods
@@ -48,7 +47,7 @@ class Branch_and_Cut:
         # (2) Define Gurobi parameters and optimize:
         logger.info(
             "[BRANCH AND CUT] Start Branch and Cut algorithm - id instance: %s",
-            self.id_instance,
+            self.instance.id_instance,
         )
         self.MP.model.setParam("Timelimit", max_run_time)
         self.MP.model.Params.lazyConstraints = 1
@@ -61,7 +60,7 @@ class Branch_and_Cut:
         self.MP.model.optimize(Cuts.add_cuts)
         logger.info(
             "[BRANCH AND CUT] End Branch and Cut algorithm - id instance: %s",
-            self.id_instance,
+            self.instance.id_instance,
         )
 
         # (3) Save metrics:
@@ -78,7 +77,7 @@ class Branch_and_Cut:
     def get_metrics_evaluation(self):
         """Get metrics of the evaluation"""
         metrics = {
-            "id_instance": self.id_instance,
+            "id_instance": self.instance.id_instance,
             "cost_installed_satellites": self.MP.model._cost_allocation_satellites.getValue(),
             "run_time": self.run_time,
             "optimality_gap": self.optimality_gap,
@@ -91,7 +90,7 @@ class Branch_and_Cut:
     def __solve_subproblem(
         self, scenario: Scenario, t: int, solution: Dict[Any, float]
     ) -> float:
-        """Solve the subproblem"""
+        """Solve the subproblem and return the total cost of the solution"""
         # (1) create subproblem
         sub_problem = SubProblem(self.instance, t, scenario)
         sp_run_time, sp_total_cost, sp_solution = sub_problem.solve_model(
@@ -104,9 +103,9 @@ class Branch_and_Cut:
         # (1) compute cost installed satellites
         cost_installed_satellites = np.sum(
             [
-                satellite.cost_fixed * solution[(s, t)]
+                satellite.cost_fixed[q] * solution[(s, q)]
                 for s, satellite in self.satellites.items()
-                for t in range(self.periods)
+                for q in satellite.capacity.keys()
             ]
         )
 
