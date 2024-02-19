@@ -203,6 +203,21 @@ class Instance:
             scenarios[str(id_scenario)] = scenario
         return scenarios
 
+    def get_scenario_expected(self) -> Scenario:
+        """Get the expected scenario."""
+        id_scenario = "expected"
+        pixels = self.__read_pixels(id_scenario)
+        fleet_size_required = self.__calculate_fleet_size_required(pixels)
+        costs_from_ca = self.__calculate_costs(pixels, fleet_size_required)
+        scenario = Scenario(
+            id_scenario=id_scenario,
+            pixels=pixels,
+            costs=costs_from_ca,
+            fleet_size_required=fleet_size_required,
+            periods=self.periods,
+        )
+        return scenario
+
 
 # if __name__ == "__main__":
 #     insta = Instance(
