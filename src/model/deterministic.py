@@ -39,7 +39,7 @@ class FlexibilityModel:
 
         # objective
         self.objective = None
-        self.cost_allocation_satellites = None
+        self.cost_installation_satellites = None
         self.cost_served_from_dc = None
         self.cost_served_from_satellite = None
         self.cost_operating_satellites = None
@@ -65,17 +65,18 @@ class FlexibilityModel:
         type_variable = GRB.CONTINUOUS if self.is_continuous_x else GRB.BINARY
 
         # 1. add variable Z: binary variable to decide if a satellite is operating in a period with a capacity
-        self.Z = dict(
-            [
-                (
-                    (s, q, t),
-                    self.model.addVar(vtype=GRB.BINARY, name=f"Z_s{s}_q{q}_t{t}"),
-                )
-                for s, satellite in satellites.items()
-                for q in satellite.capacity.keys()
-                for t in range(self.periods)
-            ]
-        )
+        if self.type_of_flexibility == 2:
+            self.Z = dict(
+                [
+                    (
+                        (s, q, t),
+                        self.model.addVar(vtype=GRB.BINARY, name=f"Z_s{s}_q{q}_t{t}"),
+                    )
+                    for s, satellite in satellites.items()
+                    for q in satellite.capacity.keys()
+                    for t in range(self.periods)
+                ]
+            )
         logger.info(f"[DETERMINISTIC] Number of variables Z: {len(self.Z)}")
 
         # 2. add variable X: binary variable to decide if a satellite is used to serve a pixel
@@ -134,9 +135,9 @@ class FlexibilityModel:
         costs: Dict[str, Any],
     ) -> None:
         """Add objective to model."""
-        # 1. add cost allocation satellites
+        # 1. add cost installation satellites
         logger.info("[DETERMINISTIC] Add objective")
-        self.cost_allocation_satellites = quicksum(
+        self.cost_installation_satellites = quicksum(
             [
                 satellite.cost_fixed[q] * self.Y[(s, q)]
                 for s, satellite in satellites.items()
@@ -145,14 +146,24 @@ class FlexibilityModel:
         )
 
         # 2. add cost operating satellites
-        self.cost_operating_satellites = quicksum(
-            [
-                satellite.cost_operation[q][t] * self.Z[(s, q, t)]
-                for s, satellite in satellites.items()
-                for q in satellite.capacity.keys()
-                for t in range(self.periods)
-            ]
-        )
+        if self.type_of_flexibility == 1:
+            self.cost_operating_satellites = quicksum(
+                [
+                    satellite.cost_operation[q][t] * self.Y[(s, q)]
+                    for s, satellite in satellites.items()
+                    for q in satellite.capacity.keys()
+                    for t in range(self.periods)
+                ]
+            )
+        else:
+            self.cost_operating_satellites = quicksum(
+                [
+                    satellite.cost_operation[q][t] * self.Z[(s, q, t)]
+                    for s, satellite in satellites.items()
+                    for q in satellite.capacity.keys()
+                    for t in range(self.periods)
+                ]
+            )
 
         # 3. add cost served from satellite
         self.cost_served_from_satellite = quicksum(
@@ -174,7 +185,7 @@ class FlexibilityModel:
         )
 
         self.objective = (
-            self.cost_allocation_satellites
+            self.cost_installation_satellites
             + self.cost_served_from_dc
             + self.cost_served_from_satellite
             + self.cost_operating_satellites
@@ -188,36 +199,23 @@ class FlexibilityModel:
         fleet_size_required: Dict[str, Any],
     ) -> None:
         """Add constraints to model."""
-        self.__add_constr_allocation_satellite(satellites)
-        self.__add_constr_operating_satellite(satellites)
+        self.__add_constr_installation_satellite(satellites)
+
+        if self.type_of_flexibility == 2:
+            self.__add_constr_activation_satellite(satellites)
+            self.__add_constr_operating_capacity_satellite(satellites)
+
         self.__add_constr_capacity_satellite(satellites, pixels, fleet_size_required)
-        self.__add_constr_assign_pixel_sallite(satellites, pixels)
         self.__add_constr_demand_satified(satellites, pixels)
 
         # dummi constraints
         # self.__add_constr_dummi(satellites)
 
-    def __add_constr_dummi(self, satellites: Dict[str, Satellite]) -> None:
-        """Add constraint dumming."""
-        logger.info("[DETERMINISTIC] Add constraint dummi")
-        nameConstraint = f"R_Dumming"
-        self.model.addConstr(
-            quicksum(
-                [
-                    self.Y[(s, q)]
-                    for s, satellite in satellites.items()
-                    for q in satellite.capacity.keys()
-                ]
-            )
-            >= 1,
-            name=nameConstraint,
-        )
-
-    def __add_constr_allocation_satellite(
+    def __add_constr_installation_satellite(
         self, satellites: Dict[str, Satellite]
     ) -> None:
-        """Add constraint allocation satellite."""
-        logger.info("[DETERMINISTIC] Add constraint allocation satellite")
+        """Add constraint installation satellite."""
+        logger.info("[DETERMINISTIC] Add constraint installation satellite")
         for s, satellite in satellites.items():
             nameConstraint = f"R_Open_s{s}"
             self.model.addConstr(
@@ -225,31 +223,44 @@ class FlexibilityModel:
                 name=nameConstraint,
             )
 
-    def __add_constr_operating_satellite(
+    def __add_constr_activation_satellite(
+        self, satellites: Dict[str, Satellite]
+    ) -> None:
+        """Add constraint activation satellite."""
+        logger.info("[DETERMINISTIC] Add constraint activation satellite")
+        for s, satellite in satellites.items():
+            for t in range(self.periods):
+                nameConstraint = f"R_activation_s{s}_t{t}"
+                self.model.addConstr(
+                    quicksum([self.Z[(s, q, t)] for q in satellite.capacity.keys()])
+                    <= quicksum([self.Y[(s, q)] for q in satellite.capacity.keys()]),
+                    name=nameConstraint,
+                )
+
+    def __add_constr_operating_capacity_satellite(
         self, satellites: Dict[str, Satellite]
     ) -> None:
         """Add constraint operating satellite."""
         logger.info("[DETERMINISTIC] Add constraint operating satellite")
         for t in range(self.periods):
             for s, satellite in satellites.items():
-                for q in satellite.capacity.keys():
-                    nameConstraint = f"R_Operating_s{s}_q{q}_t{t}"
-                    if self.type_of_flexibility == 1:
-                        self.model.addConstr(
-                            self.Z[(s, q, t)] == self.Y[(s, q)],
-                            name=nameConstraint,
-                        )
-                    else:
-                        q_lower_values = [
-                            q_lower
-                            for q_lower in satellite.capacity.keys()
-                            if q_lower <= q
+                max_capacity = max(satellite.capacity.values())
+                for q, q_value in satellite.capacity.items():
+                    if q_value < max_capacity:
+                        nameConstraint = f"R_Operating_s{s}_q{q}_t{t}"
+                        q_higher_values = [
+                            q_higher
+                            for q_higher in satellite.capacity.keys()
+                            if q_higher > q
                         ]
                         self.model.addConstr(
                             quicksum(
-                                [self.Z[(s, q_lower, t)] for q_lower in q_lower_values]
+                                [
+                                    self.Z[(s, q_higher, t)]
+                                    for q_higher in q_higher_values
+                                ]
                             )
-                            <= self.Y[(s, q)],
+                            <= 1 - self.Y[(s, q)],
                             name=nameConstraint,
                         )
 
@@ -264,40 +275,45 @@ class FlexibilityModel:
         for t in range(self.periods):
             for s, satellite in satellites.items():
                 nameConstraint = f"R_capacity_s{s}_t{t}"
-                self.model.addConstr(
-                    quicksum(
-                        [
-                            self.X[(s, k, t)]
-                            * fleet_size_required["satellite"][(s, k, t)]["fleet_size"]
-                            for k in pixels.keys()
-                        ]
-                    )
-                    - quicksum(
-                        [
-                            self.Z[(s, q, t)] * capacity
-                            for q, capacity in satellite.capacity.items()
-                        ]
-                    )
-                    <= 0,
-                    name=nameConstraint,
-                )
-
-    def __add_constr_assign_pixel_sallite(
-        self, satellites: Dict[str, Satellite], pixels: Dict[str, Pixel]
-    ) -> None:
-        """Add constraint assign pixel to satellite."""
-        logger.info("[DETERMINISTIC] Add constraint assign pixel to satellite")
-        for t in range(self.periods):
-            for k in pixels.keys():
-                for s, satellite in satellites.items():
-                    nameConstratint = f"R_Assign_s{s}_k{k}_t{t}"
+                if self.type_of_flexibility == 2:
                     self.model.addConstr(
-                        self.X[(s, k, t)]
+                        quicksum(
+                            [
+                                self.X[(s, k, t)]
+                                * fleet_size_required["satellite"][(s, k, t)][
+                                    "fleet_size"
+                                ]
+                                for k in pixels.keys()
+                            ]
+                        )
                         - quicksum(
-                            [self.Z[(s, q, t)] for q in satellite.capacity.keys()]
+                            [
+                                self.Z[(s, q, t)] * capacity
+                                for q, capacity in satellite.capacity.items()
+                            ]
                         )
                         <= 0,
-                        name=nameConstratint,
+                        name=nameConstraint,
+                    )
+                else:
+                    self.model.addConstr(
+                        quicksum(
+                            [
+                                self.X[(s, k, t)]
+                                * fleet_size_required["satellite"][(s, k, t)][
+                                    "fleet_size"
+                                ]
+                                for k in pixels.keys()
+                            ]
+                        )
+                        - quicksum(
+                            [
+                                self.Y[(s, q)] * capacity
+                                for q, capacity in satellite.capacity.items()
+                            ]
+                        )
+                        <= 0,
+                        name=nameConstraint,
                     )
 
     def __add_constr_demand_satified(
@@ -314,6 +330,22 @@ class FlexibilityModel:
                     == 1,
                     name=nameConstraint,
                 )
+
+    def __add_constr_dummi(self, satellites: Dict[str, Satellite]) -> None:
+        """Add constraint dumming."""
+        logger.info("[DETERMINISTIC] Add constraint dummi")
+        nameConstraint = f"R_Dumming"
+        self.model.addConstr(
+            quicksum(
+                [
+                    self.Y[(s, q)]
+                    for s, satellite in satellites.items()
+                    for q in satellite.capacity.keys()
+                ]
+            )
+            >= 1,
+            name=nameConstraint,
+        )
 
     def solve(self):
         """Solve the model."""
