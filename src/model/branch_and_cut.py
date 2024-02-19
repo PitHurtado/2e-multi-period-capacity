@@ -45,6 +45,7 @@ class Branch_and_Cut:
             self.instance.id_instance,
         )
         logger.info(f"[BRANCH AND CUT] Instance: \n {self.instance}")
+        self.MP.build()
         self.MP.model.setParam("Timelimit", max_run_time)
         self.MP.model.Params.lazyConstraints = 1
         self.MP.model.setParam("Heuristics", 0)
@@ -53,10 +54,10 @@ class Branch_and_Cut:
         start_time = time.time()
         self.MP.set_start_time(start_time)
         self.Cuts.set_start_time(start_time)
-        self.MP.build()
         # turn off presolve
-        # self.MP.model.setParam("Presolve", 0)
+        self.MP.model.setParam("Presolve", 0)
         self.MP.model.optimize(Cuts.add_cuts)
+        self.MP.model.update()
         logger.info(
             "[BRANCH AND CUT] End Branch and Cut algorithm - id instance: %s",
             self.instance.id_instance,
@@ -69,13 +70,12 @@ class Branch_and_Cut:
             self.optimality_gap = round(100 * self.MP.model.MIPGap, 3)
             self.objective_value = round(self.MP.get_objective_value(), 3)
             print("Objective value: ", self.objective_value)
-            self.MP.model.dispose()
+            # self.MP.model.dispose()
         except AttributeError:
             logger.error(
                 "[BRANCH AND CUT] Error while saving metrics - id instance: %s",
                 self.instance.id_instance,
             )
-        print(f"y solution {self.MP.get_y_solution()}")
 
     def get_best_solution_allocation(self):
         """Get the best solution allocation"""
@@ -124,6 +124,7 @@ class Branch_and_Cut:
 
         # (3) compute total cost of the evaluation
         total_cost = (
-            cost_installed_satellites + (1 / len(self.scenarios) * self.periods) * cost_second_echeleon
+            cost_installed_satellites
+            + (1 / len(self.scenarios) * self.periods) * cost_second_echeleon
         )
         return total_cost

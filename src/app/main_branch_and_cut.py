@@ -1,4 +1,5 @@
 """Module of main branch and cut."""
+import json
 from typing import Any, Dict, List
 
 from src.instance.instance import Instance
@@ -32,8 +33,7 @@ if __name__ == "__main__":
     solver.solve(max_run_time=3600, warm_start=False)
 
     # (3) Save results:
-    #    Y_solution = {str(keys): value.X for keys, value in solver.MP.model._Y.items()}
-    Y_solution = {}
+    Y_solution = {str(keys): value.X for keys, value in solver.MP.model._Y.items()}
     # Y_solution["objective"] = solver.MP.model._total_cost.getValue()
     # Y_solution[
     #     "cost_installation_satellites"
@@ -46,5 +46,5 @@ if __name__ == "__main__":
     #     file.write(json.dumps(Y_solution, indent=4))
     # print(f"Results saved in {path_file_output}")
 
-    # print("-----------------------------------")
-    # print(json.dumps(Y_solution, indent=4))
+    print("-----------------------------------")
+    print(json.dumps(Y_solution, indent=4))

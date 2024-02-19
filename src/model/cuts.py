@@ -103,23 +103,6 @@ class Cuts:
     @staticmethod
     def get_activation_function(model, Y):
         """Get the activation function"""
-        # activation = (
-        #     quicksum(
-        #         model._Y[(s, q)]
-        #         for s, satellite in Cuts.satellites.items()
-        #         for q in satellite.capacity.keys()
-        #         if Y[(s, q)] > 0.5
-        #     )
-        #     - len(
-        #         [
-        #             1
-        #             for s, satellite in Cuts.satellites.items()
-        #             for q in satellite.capacity.keys()
-        #             if Y[(s, q)] > 0.5
-        #         ]
-        #     )
-        #     + 1
-        # )
         epsilon = 1e-6
         activation = (
             quicksum(

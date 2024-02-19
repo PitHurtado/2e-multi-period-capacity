@@ -16,8 +16,6 @@ class MasterProblem:
 
     def __init__(self, instance: Instance) -> None:
         """Initialize the master problem."""
-        self.model: gp.Model = gp.Model(name="MasterProblem")
-
         # Instance
         self.periods: int = instance.periods
         self.satellites: Dict[str, Satellite] = instance.satellites
@@ -30,15 +28,24 @@ class MasterProblem:
         # Parameters Lower Bound
         self.LB: Dict[Tuple[str, int], float] = self.__compute_lower_bound()
 
+        # objective
+        self.objective = None
+        self.cost_installation_satellites = None
+        self.cost_second_stage = None
+
     def build(self) -> None:
         """Build the master problem."""
         logger.info("[MODEL] Building master problem")
+        # create Model
+        self.model: gp.Model = gp.Model(name="MasterProblem")
+
+        # Add variables, objective and constraints
         self.__add_variables(self.satellites, self.scenarios)
         self.__add_objective(self.satellites, self.scenarios)
         self.__add_constraints(self.satellites)
 
+        # self.model.update()
         self.model._start_time = 0
-        self.model.update()
 
     def __add_variables(
         self, satellites: Dict[str, Satellite], scenarios: Dict[str, Dict[str, Any]]
@@ -121,6 +128,11 @@ class MasterProblem:
 
         total_cost = cost_installation_satellites + cost_second_stage
         self.model.setObjective(total_cost, GRB.MINIMIZE)
+
+        self.objective = total_cost
+        self.cost_installation_satellites = cost_installation_satellites
+        self.cost_second_stage = cost_second_stage
+
         self.model._total_cost = total_cost
         self.model._cost_installation_satellites = cost_installation_satellites
         self.model._cost_second_stage = cost_second_stage
