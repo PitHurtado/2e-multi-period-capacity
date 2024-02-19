@@ -103,7 +103,7 @@ class MasterProblem:
         """Add objective function to the model."""
         logger.info("[MODEL] Adding objective function to master problem")
 
-        cost_allocation_satellites = quicksum(
+        cost_installation_satellites = quicksum(
             [
                 (satellite.cost_fixed[q])
                 * self.Y[(s, q)]  # TODO: check if it is the right value
@@ -119,10 +119,10 @@ class MasterProblem:
             )
         )
 
-        total_cost = cost_allocation_satellites + cost_second_stage
+        total_cost = cost_installation_satellites + cost_second_stage
         self.model.setObjective(total_cost, GRB.MINIMIZE)
         self.model._total_cost = total_cost
-        self.model._cost_allocation_satellites = cost_allocation_satellites
+        self.model._cost_installation_satellites = cost_installation_satellites
         self.model._cost_second_stage = cost_second_stage
 
     def __add_constraints(self, satellites: Dict[str, Satellite]) -> None:
@@ -183,3 +183,8 @@ class MasterProblem:
         logger.info(f"[MODEL] Warm start the model with solution {solution}")
         for key, item in solution.items():
             self.model.getVarByName(key).start = item
+
+    def get_y_solution(self):
+        """Get the Y solution of the model."""
+        logger.info("[MODEL] Getting Y solution")
+        return {str(keys): value.X for keys, value in self.Y.items()}
