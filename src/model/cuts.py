@@ -1,28 +1,25 @@
 """Module to define Sub Problem and Cut Generator"""
-import logging
 import sys
 import time
 from typing import Any, Dict
 
+import numpy as np
 from gurobipy import GRB, quicksum
 
 from src.classes import Satellite
 from src.instance.instance import Instance
 from src.model.master_problem import MasterProblem
 from src.model.sub_problem import SubProblem
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+from src.utils import LOGGER as logger
 
 
 class Cuts:
     """Class to define the Cut Generator"""
 
-    def __init__(self, instance: Instance):
+    def __init__(self, instance: Instance, lower_bound_from_mp: Dict[Any, float]):
         # solver SP
         Cuts.SPs: Dict[Any, SubProblem] = self.__create_subproblems(instance)
+        Cuts.LB = lower_bound_from_mp
 
         # parameters
         Cuts.periods: int = instance.periods
@@ -43,7 +40,7 @@ class Cuts:
         """Add optimality cuts and LBF cuts"""
         if where == GRB.Callback.MIPSOL:
             Cuts.add_cut_integer_solution(model)
-        logger.info(f"[CUT] Optimality cuts: {Cuts.optimality_cuts}")
+            logger.info(f"[CUT] Optimality cuts: {Cuts.optimality_cuts}")
 
     @staticmethod
     def add_cut_integer_solution(model: MasterProblem) -> None:
@@ -51,55 +48,100 @@ class Cuts:
         # retrieve current solution
         Y = model.cbGetSolution(model._Y)
         θ = model.cbGetSolution(model._θ)
-        current_solution_cost = model._total_cost.getValue()
 
+        # solve subproblems
+        total_subproblem_cost = 0
+        new_θ = {}
         for t in range(Cuts.periods):
             for n in Cuts.instance.scenarios.keys():
+                logger.info(f"[CUT] Subproblem: {n} - {t}")
                 _, subproblem_cost = Cuts.SPs[(n, t)].solve_model(Y, False)
                 Cuts.subproblem_solved += 1
-                current_solution_cost += subproblem_cost
+                total_subproblem_cost += subproblem_cost
+                new_θ[(n, t)] = subproblem_cost
 
-                if θ[(n, t)] < subproblem_cost:
-                    # Create the activation function:
-                    act_functon = Cuts.get_activation_function(model, Y)
+        logger.info(f"[CUT] Subproblems solved: {Cuts.subproblem_solved}")
 
-                    # Add the optimality cut:
-                    model.cbLazy(
-                        θ[(n, t)]
-                        >= model.LB[(n, t)]
-                        + (subproblem_cost - model.LB[(n, t)]) * act_functon
-                    )
-                    Cuts.optimality_cuts += 1
+        total_cost = (
+            np.sum(
+                [
+                    satellite.cost_fixed[q] * Y[(s, q)]
+                    for s, satellite in Cuts.instance.satellites.items()
+                    for q in satellite.capacity.keys()
+                ]
+            )
+            + (1 / (len(Cuts.instance.scenarios) * Cuts.periods))
+            * total_subproblem_cost
+        )
 
         # update upper bound and best solution found so far
-        if current_solution_cost < Cuts.upper_bound:
-            Cuts.upper_bound = current_solution_cost
+        if total_cost < Cuts.upper_bound:
+            Cuts.upper_bound = total_cost
             Cuts.best_solution = Y
             Cuts.time_best_solution_found = round(time.time() - Cuts.start_time, 3)
             Cuts.upper_bound_updated += 1
             model.cbSetSolution(model._Y, Y)
-            model.cbSetSolution(model._θ, subproblem_cost)
+            model.cbSetSolution(model._θ, new_θ)
             model.cbUseSolution()
+
+        # add optimality cuts
+        for t in range(Cuts.periods):
+            for n in Cuts.instance.scenarios.keys():
+                if θ[(n, t)] < new_θ[(n, t)]:
+                    # Create the activation function:
+                    act_function = Cuts.get_activation_function(model, Y)
+                    model.cbLazy(
+                        model._θ[(n, t)]
+                        >= (
+                            new_θ[(n, t)]
+                            + (new_θ[(n, t)] - Cuts.LB[(n, t)]) * act_function
+                        )
+                    )
+
+                    Cuts.optimality_cuts += 1
 
     @staticmethod
     def get_activation_function(model, Y):
         """Get the activation function"""
+        # activation = (
+        #     quicksum(
+        #         model._Y[(s, q)]
+        #         for s, satellite in Cuts.satellites.items()
+        #         for q in satellite.capacity.keys()
+        #         if Y[(s, q)] > 0.5
+        #     )
+        #     - len(
+        #         [
+        #             1
+        #             for s, satellite in Cuts.satellites.items()
+        #             for q in satellite.capacity.keys()
+        #             if Y[(s, q)] > 0.5
+        #         ]
+        #     )
+        #     + 1
+        # )
+        epsilon = 1e-6
         activation = (
             quicksum(
                 model._Y[(s, q)]
                 for s, satellite in Cuts.satellites.items()
                 for q in satellite.capacity.keys()
-                if Y[(s, q)] > 0.5
+                if Y[(s, q)] + epsilon >= 1
             )
-            - len(
+            - quicksum(
+                model._Y[(s, q)]
+                for s, satellite in Cuts.satellites.items()
+                for q in satellite.capacity.keys()
+                if Y[(s, q)] < 0.1
+            )
+            - np.sum(
                 [
                     1
                     for s, satellite in Cuts.satellites.items()
                     for q in satellite.capacity.keys()
-                    if Y[(s, q)] > 0.5
+                    if Y[(s, q)] + epsilon >= 1
                 ]
             )
-            + 1
         )
         return activation
 

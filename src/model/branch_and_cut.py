@@ -54,6 +54,8 @@ class Branch_and_Cut:
         start_time = time.time()
         self.MP.set_start_time(start_time)
         self.Cuts.set_start_time(start_time)
+        # turn off presolve
+        # self.MP.model.setParam("Presolve", 0)
         self.MP.model.optimize(Cuts.add_cuts)
         logger.info(
             "[BRANCH AND CUT] End Branch and Cut algorithm - id instance: %s",
@@ -66,6 +68,7 @@ class Branch_and_Cut:
             self.run_time = round(time.time() - start_time, 3)
             self.optimality_gap = round(100 * self.MP.model.MIPGap, 3)
             self.objective_value = round(self.MP.get_objective_value(), 3)
+            print("Objective value: ", self.objective_value)
             self.MP.model.dispose()
         except AttributeError:
             logger.error(

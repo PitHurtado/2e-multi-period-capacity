@@ -142,7 +142,7 @@ class SubProblem:
         else:
             self.cost_operating_satellites = quicksum(
                 [
-                    (satellite.cost_operation[q_lower][self.t])
+                    (satellite.cost_operation[q_lower][self.t])  # TODO: remove hardcode
                     * self.X[(s, q_lower, self.t)]
                     for s, satellite in satellites.items()
                     for q in satellite.capacity.keys()

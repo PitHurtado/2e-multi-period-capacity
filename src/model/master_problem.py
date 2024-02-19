@@ -88,10 +88,12 @@ class MasterProblem:
                                 ]
                                 for s in self.satellites.keys()
                             ]
+                            + [scenario.get_cost_serving("dc")[(k, t)]["total"]]
                         )
                         for k in scenario.pixels.keys()
                     ]
                 )
+                # LB[(n, t)] = 0
         logger.info(f"[MODEL] Lower bounds: {LB}")
         return LB
 
@@ -103,14 +105,15 @@ class MasterProblem:
 
         cost_allocation_satellites = quicksum(
             [
-                (satellite.cost_fixed[q]) * self.Y[(s, q)]
+                (satellite.cost_fixed[q])
+                * self.Y[(s, q)]  # TODO: check if it is the right value
                 for s, satellite in satellites.items()
                 for q in satellite.capacity.keys()
             ]
         )
         cost_second_stage = (
             1
-            / len(scenarios)
+            / (len(scenarios) * self.periods)
             * quicksum(
                 [self.θ[(n, t)] for t in range(self.periods) for n in scenarios.keys()]
             )
@@ -141,16 +144,17 @@ class MasterProblem:
                     self.model.addConstr(self.θ[(n, t)] >= self.LB[(n, t)])
 
         # dummy constraint
-        self.model.addConstr(
-            quicksum(
-                [
-                    self.Y[(s, q)]
-                    for s in satellites.keys()
-                    for q in satellites[s].capacity.keys()
-                ]
-            )
-            == 1
-        )
+        # this constraint is added to avoid the following error:
+        # self.model.addConstr(
+        #     quicksum(
+        #         [
+        #             self.Y[(s, q)]
+        #             for s in satellites.keys()
+        #             for q in satellites[s].capacity.keys()
+        #         ]
+        #     )
+        #     == 1
+        # )
 
     def get_objective_value(self):
         """Get the objective value of the model."""

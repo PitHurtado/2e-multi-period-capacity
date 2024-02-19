@@ -34,7 +34,7 @@ class SampleAverageApproximation:
         # (1) Train the model
         best_solutions: List[Dict[Any, float]] = []
         for n, instance in instances_train.items():
-            logger.info(
+            print(
                 f"[SAA] ID experiment {self.id_experiment} -  Train model for instance {n}"
             )
             branch_and_cut: Branch_and_Cut = self.__create_branch_and_cut(instance)
@@ -43,17 +43,18 @@ class SampleAverageApproximation:
                 str, float
             ] = branch_and_cut.get_best_solution_allocation()
 
-            # check if the current solution is not in the best solutions
-            if not any(
-                key_current_solution in best_solution
-                for best_solution in best_solutions
-                for key_current_solution in current_solution.keys()
-            ):
-                best_solutions.append(current_solution)
+            print(
+                f"[SAA ---------] ID experiment {self.id_experiment} - current solution: {current_solution} for instances {instance.id_instance}"
+            )
 
-        logger.info(
-            f"[SAA] ID experiment {self.id_experiment} - Best solution: {best_solutions} for instances {instances_train.keys()}"
-        )
+            # check if the current solution is not in the best solutions
+            # if not any(
+            #     key_current_solution in best_solution
+            #     for best_solution in best_solutions
+            #     for key_current_solution in current_solution.keys()
+            # ):
+            #     best_solutions.append(current_solution)
+            best_solutions.append(current_solution)
 
         # (2) Evaluate the model
         logger.info(
@@ -71,6 +72,9 @@ class SampleAverageApproximation:
             current_solution["id_solution"] = i
             current_solution["solution"] = solution
             solutions_evaluation.append(current_solution)
+            logger.info(
+                f"[SAA] ID experiment {self.id_experiment} - Evaluate model for instance \n {instances_evaluation} - Solution {i} - Objective value {current_solution['objective_value']}"
+            )
 
         # (3) select the best solution
         best_solution: Dict[Any, float] = min(
