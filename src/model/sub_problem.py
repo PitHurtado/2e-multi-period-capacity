@@ -118,7 +118,7 @@ class SubProblem:
         if self.type_of_flexibility == 2:
             self.cost_operating_satellites = quicksum(
                 [
-                    satellite.cost_operation[q][self.t] * self.Z[(s, q, self.t)]
+                    satellite.cost_operation[q][self.t] / 8 * self.Z[(s, q, self.t)]
                     for s, satellite in satellites.items()
                     for q in satellite.capacity.keys()
                     if (s, q, self.t) in self.Z.keys()
@@ -228,7 +228,7 @@ class SubProblem:
         # adding operational costs only for case type of flexibility 1
         cost_operating_satellites = np.sum(
             [
-                satellite.cost_operation[q][self.t]
+                satellite.cost_operation[q][self.t] / 8
                 for s, satellite in self.satellites.items()
                 for q in satellite.capacity.keys()
                 if self.type_of_flexibility == 1 and fixed_y[(s, q)] > 0.5

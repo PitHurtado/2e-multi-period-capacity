@@ -1,7 +1,7 @@
 """Constants for the application."""
 
 # Constants
-FEE_COST_FROM_SATELLITE = 0.1333
+FEE_COST_FROM_SATELLITE = 0.00001333
 FEE_COST_FROM_DC = 0.264
 
 

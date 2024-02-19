@@ -200,12 +200,16 @@ def cost_satellite_to_pixel(
                     vehicle.cost_fixed * fleet_size_required[(s, k, t)]["fleet_size"]
                 )
 
-                total_cost = cost_first_level + cost_shipping + cost_vehicles
+                total_cost = (
+                    round(cost_first_level, 0)
+                    + round(cost_shipping, 0)
+                    + round(cost_vehicles, 1)
+                )
                 costs[(s, k, t)] = {
                     "total": total_cost,
-                    "first_level": cost_first_level,
-                    "shipping": cost_shipping,
-                    "vehicles": cost_vehicles,
+                    "first_level": round(cost_first_level, 0),
+                    "shipping": round(cost_shipping, 0),
+                    "vehicles": round(cost_vehicles, 1),
                 }
     return costs
 
@@ -259,11 +263,11 @@ def cost_dc_to_pixel(
                 vehicle.cost_fixed * fleet_size_required[(k, t)]["fleet_size"]
             )
 
-            total_cost = cost_shipping + cost_vehicles
+            total_cost = round(cost_shipping, 0) + round(cost_vehicles, 1)
             costs[(k, t)] = {
                 "total": total_cost,
-                "shipping": cost_shipping,
-                "vehicles": cost_vehicles,
+                "shipping": round(cost_shipping, 0),
+                "vehicles": round(cost_vehicles, 1),
             }
     return costs
 

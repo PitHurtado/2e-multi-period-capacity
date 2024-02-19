@@ -139,7 +139,7 @@ class FlexibilityModel:
         logger.info("[DETERMINISTIC] Add objective")
         self.cost_installation_satellites = quicksum(
             [
-                satellite.cost_fixed[q] * self.Y[(s, q)]
+                satellite.cost_fixed[q] / 20 * self.Y[(s, q)]
                 for s, satellite in satellites.items()
                 for q in satellite.capacity.keys()
             ]
@@ -149,7 +149,7 @@ class FlexibilityModel:
         if self.type_of_flexibility == 1:
             self.cost_operating_satellites = quicksum(
                 [
-                    satellite.cost_operation[q][t] * self.Y[(s, q)]
+                    satellite.cost_operation[q][t] / 8 * self.Y[(s, q)]
                     for s, satellite in satellites.items()
                     for q in satellite.capacity.keys()
                     for t in range(self.periods)
@@ -158,7 +158,7 @@ class FlexibilityModel:
         else:
             self.cost_operating_satellites = quicksum(
                 [
-                    satellite.cost_operation[q][t] * self.Z[(s, q, t)]
+                    satellite.cost_operation[q][t] / 8 * self.Z[(s, q, t)]
                     for s, satellite in satellites.items()
                     for q in satellite.capacity.keys()
                     for t in range(self.periods)
@@ -343,7 +343,7 @@ class FlexibilityModel:
                     for q in satellite.capacity.keys()
                 ]
             )
-            >= 1,
+            == 0,
             name=nameConstraint,
         )
 

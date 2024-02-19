@@ -112,15 +112,14 @@ class MasterProblem:
 
         cost_installation_satellites = quicksum(
             [
-                (satellite.cost_fixed[q])
-                * self.Y[(s, q)]  # TODO: check if it is the right value
+                (satellite.cost_fixed[q] / 20) * self.Y[(s, q)]
                 for s, satellite in satellites.items()
                 for q in satellite.capacity.keys()
             ]
         )
         cost_second_stage = (
             1
-            / (len(scenarios) * self.periods)
+            / (len(scenarios))
             * quicksum(
                 [self.θ[(n, t)] for t in range(self.periods) for n in scenarios.keys()]
             )

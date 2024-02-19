@@ -18,6 +18,7 @@ scipy = "^1.11.4"
 geopandas = "^0.14.1"
 openpyxl = "^3.1.2"
 tqdm = "^4.66.1"
+matplotlib = "^3.8.3"
 
 
 [tool.poetry.group.dev.dependencies]

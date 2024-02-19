@@ -35,6 +35,13 @@ class Data:
             sys.exit(1)
         for _, row in df.iterrows():
             id_satellite = str(row["id_satellite"])
+
+            cost_fixed = Data.__round_dict_values(json.loads(row["cost_fixed"]))
+            cost_operation = {
+                key: Data.__round_list_values(value_list)
+                for key, value_list in json.loads(row["cost_operation"]).items()
+            }
+
             new_satellite = Satellite(
                 id_satellite=id_satellite,
                 lon=row["lon"],
@@ -43,8 +50,8 @@ class Data:
                 travel_time_from_dc=row["travel_time_from_dc"],
                 travel_time_in_traffic_from_dc=row["travel_time_in_traffic_from_dc"],
                 capacity=json.loads(row["capacity"]),
-                cost_fixed=json.loads(row["cost_fixed"]),
-                cost_operation=json.loads(row["cost_operation"]),
+                cost_fixed=cost_fixed,
+                cost_operation=cost_operation,
                 cost_sourcing=row["cost_sourcing"],
             )
             satellites[id_satellite] = new_satellite
@@ -208,3 +215,13 @@ class Data:
             f"[ETL] Quantity of vehicles loaded: {len([vehicle_small, vehicle_large])}"
         )
         return {"small": vehicle_small, "large": vehicle_large}
+
+    @staticmethod
+    def __round_dict_values(dict_to_round: Dict) -> Dict:
+        """Round the values of a dictionary"""
+        return {k: round(v, 0) for k, v in dict_to_round.items()}
+
+    @staticmethod
+    def __round_list_values(list_to_round: list) -> list:
+        """Round the values of a list"""
+        return [round(v, 0) for v in list_to_round]

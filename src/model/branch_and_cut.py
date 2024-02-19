@@ -3,6 +3,7 @@ import time
 from typing import Any, Dict
 
 import numpy as np
+from matplotlib import pyplot as plt
 
 from src.classes import Satellite
 from src.instance.instance import Instance
@@ -55,13 +56,17 @@ class Branch_and_Cut:
         self.MP.set_start_time(start_time)
         self.Cuts.set_start_time(start_time)
         # turn off presolve
-        self.MP.model.setParam("Presolve", 0)
+        # self.MP.model.setParam("Presolve", 0)
         self.MP.model.optimize(Cuts.add_cuts)
-        self.MP.model.update()
+        # self.MP.model.update()
         logger.info(
             "[BRANCH AND CUT] End Branch and Cut algorithm - id instance: %s",
             self.instance.id_instance,
         )
+        values_times_subproblems = Cuts.run_times
+        plt.hist(values_times_subproblems, bins=50)
+        plt.yscale("log")
+        plt.show()
 
         # (3) Save metrics:
         logger.info("[BRANCH AND CUT] Save metrics")
@@ -124,7 +129,6 @@ class Branch_and_Cut:
 
         # (3) compute total cost of the evaluation
         total_cost = (
-            cost_installed_satellites
-            + (1 / len(self.scenarios) * self.periods) * cost_second_echeleon
+            cost_installed_satellites + (1 / len(self.scenarios)) * cost_second_echeleon
         )
         return total_cost

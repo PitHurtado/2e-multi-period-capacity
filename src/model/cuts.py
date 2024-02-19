@@ -34,6 +34,7 @@ class Cuts:
         Cuts.subproblem_solved = 0
         Cuts.start_time = 0
         Cuts.time_best_solution_found = 0
+        Cuts.run_times = []
 
     @staticmethod
     def add_cuts(model, where) -> None:
@@ -55,27 +56,37 @@ class Cuts:
         for t in range(Cuts.periods):
             for n in Cuts.instance.scenarios.keys():
                 logger.info(f"[CUT] Subproblem: {n} - {t}")
-                _, subproblem_cost = Cuts.SPs[(n, t)].solve_model(Y, False)
+                subproblem_runtime, subproblem_cost = Cuts.SPs[(n, t)].solve_model(
+                    Y, False
+                )
                 Cuts.subproblem_solved += 1
-                total_subproblem_cost += subproblem_cost
                 new_θ[(n, t)] = subproblem_cost
+                total_subproblem_cost += subproblem_cost
+                Cuts.run_times.append(subproblem_runtime)
 
         logger.info(f"[CUT] Subproblems solved: {Cuts.subproblem_solved}")
 
         total_cost = (
             np.sum(
                 [
-                    satellite.cost_fixed[q] * Y[(s, q)]
+                    satellite.cost_fixed[q] / 20 * Y[(s, q)]
                     for s, satellite in Cuts.instance.satellites.items()
                     for q in satellite.capacity.keys()
                 ]
             )
-            + (1 / (len(Cuts.instance.scenarios) * Cuts.periods))
-            * total_subproblem_cost
+            + (1 / (len(Cuts.instance.scenarios))) * total_subproblem_cost
         )
 
+        print(f" total cost {total_cost}")
+        # print(f"cost installation {cost_installation}")
+
+        # if not any(Y[(s, q)] > 0.5 for s, satellite in Cuts.instance.satellites.items() for q in satellite.capacity.keys()):
+
+        #     print("no instalado")
+        # sys.exit(1)
+
         # update upper bound and best solution found so far
-        if total_cost < Cuts.upper_bound:
+        if total_cost < Cuts.upper_bound + 1:
             Cuts.upper_bound = total_cost
             Cuts.best_solution = Y
             Cuts.time_best_solution_found = round(time.time() - Cuts.start_time, 3)

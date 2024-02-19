@@ -1,5 +1,8 @@
 """Module of main branch and cut."""
+import cProfile
+import io
 import json
+import pstats
 from typing import Any, Dict, List
 
 from src.instance.instance import Instance
@@ -29,9 +32,19 @@ if __name__ == "__main__":
     logger.info(
         f"[MAIN BRANCH AND CUT] Instance generated - instance_to_solve {instance_to_solve}"
     )
-    solver = Branch_and_Cut(instance_to_solve)
-    solver.solve(max_run_time=3600, warm_start=False)
 
+    solver = Branch_and_Cut(instance_to_solve)
+    pr = cProfile.Profile()
+    pr.enable()
+
+    solver.solve(max_run_time=60, warm_start=False)
+
+    pr.disable()
+    s = io.StringIO()
+    ps = pstats.Stats(pr, stream=s)
+    ps.strip_dirs().sort_stats("cumulative").print_stats(10)
+
+    print(s.getvalue())
     # (3) Save results:
     Y_solution = {str(keys): value.X for keys, value in solver.MP.model._Y.items()}
     # Y_solution["objective"] = solver.MP.model._total_cost.getValue()
@@ -48,3 +61,17 @@ if __name__ == "__main__":
 
     print("-----------------------------------")
     print(json.dumps(Y_solution, indent=4))
+
+    # solver = Branch_and_Cut(problem)
+
+    # pr = cProfile.Profile()
+    # pr.enable()
+
+    # solver.solve(max_run_time)
+
+    # pr.disable()
+    # s = io.StringIO()
+    # ps = pstats.Stats(pr, stream=s)
+    # ps.strip_dirs().sort_stats('cumulative').print_stats(10)
+
+    # print(s.getvalue())
