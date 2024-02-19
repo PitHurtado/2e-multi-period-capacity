@@ -1,4 +1,5 @@
 """Main module for the SAA application."""
+import json
 
 from src.instance.instance import Instance
 from src.model.deterministic import FlexibilityModel
@@ -32,6 +33,20 @@ if __name__ == "__main__":
     model.build()
     model.solve()
 
+    print("Objective function value: ", model.objective.getValue())
+    print(
+        "cost_allocation_satellites value: ",
+        model.cost_allocation_satellites.getValue(),
+    )
+    print(
+        "cost_operating_satellitesn value: ", model.cost_operating_satellites.getValue()
+    )
+    print(
+        "cost_served_from_satellite value: ",
+        model.cost_served_from_satellite.getValue(),
+    )
+    print("cost_served_from_dc value: ", model.cost_served_from_dc.getValue())
+
     # (3) Save results:
-    Y_solution = {keys: value.X for keys, value in model.model._Y.items()}
-    print(Y_solution)
+    Y_solution = {str(keys): value.X for keys, value in model.model._Y.items()}
+    print(json.dumps(Y_solution, indent=4))

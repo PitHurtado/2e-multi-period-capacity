@@ -27,6 +27,10 @@ class FlexibilityModel:
             id_scenario
         ].get_fleet_size_required()
 
+        # Params from instance
+        self.type_of_flexibility: int = instance.type_of_flexibility
+        self.is_continuous_x: bool = instance.is_continuous_x
+
         # variables
         self.Z = {}
         self.Y = {}
@@ -43,21 +47,14 @@ class FlexibilityModel:
     def build(self) -> None:
         """Build the model."""
         logger.info("[DETERMINISTIC] Build model")
-
-        # 1.  add variables
         self.__add_variables(self.satellites, self.pixels)
-
-        # 2. add objective
         self.__add_objective(self.satellites, self.pixels, self.cost_serving)
-
-        # 3. add constraints
         self.__add_constraints(
             self.satellites,
             self.pixels,
             self.fleet_size_required,
         )
 
-        # 4. update model
         self.model.update()
         logger.info("[DETERMINISTIC] Model built")
 
@@ -65,6 +62,8 @@ class FlexibilityModel:
         self, satellites: Dict[str, Satellite], pixels: Dict[str, Pixel]
     ) -> None:
         """Add variables to model."""
+        type_variable = GRB.CONTINUOUS if self.is_continuous_x else GRB.BINARY
+
         # 1. add variable Z: binary variable to decide if a satellite is operating in a period with a capacity
         self.Z = dict(
             [
@@ -84,7 +83,9 @@ class FlexibilityModel:
             [
                 (
                     (s, k, t),
-                    self.model.addVar(vtype=GRB.BINARY, name=f"X_s{s}_k{k}_t{t}"),
+                    self.model.addVar(
+                        vtype=type_variable, name=f"X_s{s}_k{k}_t{t}", lb=0, ub=1
+                    ),
                 )
                 for s in satellites.keys()
                 for k in pixels.keys()
@@ -96,7 +97,12 @@ class FlexibilityModel:
         # 3. add variable W: binary variable to decide if a pixel is served from dc
         self.W = dict(
             [
-                ((k, t), self.model.addVar(vtype=GRB.BINARY, name=f"W_k{k}_t{t}"))
+                (
+                    (k, t),
+                    self.model.addVar(
+                        vtype=type_variable, name=f"W_k{k}_t{t}", lb=0, ub=1
+                    ),
+                )
                 for k in pixels.keys()
                 for t in range(self.periods)
             ]
@@ -228,16 +234,24 @@ class FlexibilityModel:
             for s, satellite in satellites.items():
                 for q in satellite.capacity.keys():
                     nameConstraint = f"R_Operating_s{s}_q{q}_t{t}"
-                    q_lower_values = [
-                        q_lower for q_lower in satellite.capacity.keys() if q_lower <= q
-                    ]
-                    self.model.addConstr(
-                        quicksum(
-                            [self.Z[(s, q_lower, t)] for q_lower in q_lower_values]
+                    if self.type_of_flexibility == 1:
+                        self.model.addConstr(
+                            self.Z[(s, q, t)] == self.Y[(s, q)],
+                            name=nameConstraint,
                         )
-                        <= self.Y[(s, q)],
-                        name=nameConstraint,
-                    )
+                    else:
+                        q_lower_values = [
+                            q_lower
+                            for q_lower in satellite.capacity.keys()
+                            if q_lower <= q
+                        ]
+                        self.model.addConstr(
+                            quicksum(
+                                [self.Z[(s, q_lower, t)] for q_lower in q_lower_values]
+                            )
+                            <= self.Y[(s, q)],
+                            name=nameConstraint,
+                        )
 
     def __add_constr_capacity_satellite(
         self,
@@ -250,7 +264,6 @@ class FlexibilityModel:
         for t in range(self.periods):
             for s, satellite in satellites.items():
                 nameConstraint = f"R_capacity_s{s}_t{t}"
-                # logger.info(f"[DETERMINISTIC] Add constraint: {nameConstraint}")
                 self.model.addConstr(
                     quicksum(
                         [
