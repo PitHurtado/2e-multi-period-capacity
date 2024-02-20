@@ -52,30 +52,28 @@ class Branch_and_Cut:
         self.MP.model.setParam("Heuristics", 0)
         self.MP.model.setParam("MIPGap", 0.001)
         self.MP.model.setParam("Threads", 10)
+
         start_time = time.time()
         self.MP.set_start_time(start_time)
         self.Cuts.set_start_time(start_time)
-        # turn off presolve
-        # self.MP.model.setParam("Presolve", 0)
+
         self.MP.model.optimize(Cuts.add_cuts)
-        # self.MP.model.update()
         logger.info(
             "[BRANCH AND CUT] End Branch and Cut algorithm - id instance: %s",
             self.instance.id_instance,
         )
-        values_times_subproblems = Cuts.run_times
-        plt.hist(values_times_subproblems, bins=50)
-        plt.yscale("log")
-        plt.show()
 
         # (3) Save metrics:
+        # values_times_subproblems = Cuts.run_times
+        # plt.hist(values_times_subproblems, bins=50)
+        # plt.yscale("log")
+        # plt.show()
+
         logger.info("[BRANCH AND CUT] Save metrics")
         try:
             self.run_time = round(time.time() - start_time, 3)
             self.optimality_gap = round(100 * self.MP.model.MIPGap, 3)
             self.objective_value = round(self.MP.get_objective_value(), 3)
-            print("Objective value: ", self.objective_value)
-            # self.MP.model.dispose()
         except AttributeError:
             logger.error(
                 "[BRANCH AND CUT] Error while saving metrics - id instance: %s",
