@@ -16,12 +16,19 @@ class Experiment:
 
     def __get_combinations(self) -> itertools.product:
         """Return a list of combinations"""
-        N = [10, 20, 30]
-        capacity_satellites = [[2, 6, 12], [2, 6, 8, 12], [2, 4, 6, 8, 12]]
+        N = [10, 20]
+        capacity_satellites = [[2, 6, 12], [2, 4, 6, 8, 12]]
         is_continuous_x = [False, True]
         type_of_flexibility = [1, 2]
         alpha = [1.0]
         beta = [1.0]
+
+        # N = [10]
+        # capacity_satellites = [[2, 6, 12]]
+        # is_continuous_x = [False]
+        # type_of_flexibility = [2]
+        # alpha = [1.0]
+        # beta = [1.0]
         return itertools.product(
             N, capacity_satellites, is_continuous_x, type_of_flexibility, alpha, beta
         )
@@ -54,7 +61,9 @@ class Experiment:
             )
         return info_combinations
 
-    def generate_instances(self, debug: bool = False) -> List[Dict[str, Any]]:
+    def generate_instances(
+        self, include_expected: bool, debug: bool = False
+    ) -> List[Dict[str, Any]]:
         """Generate instances for training and evaluation. Return a list of instances."""
         combinations = self.__get_combinations()
         n_combinations = len(list(self.__get_combinations()))
@@ -95,6 +104,25 @@ class Experiment:
             logger.info(
                 f"[EXPERIMENT] Generated {len(instances_train)} instances for training - M {self.M}"
             )
+            if include_expected:
+                # expected instances
+                id_instance = f"id_{index}_expected"
+                instance_expected = Instance(
+                    id_instance=id_instance,
+                    capacity_satellites=capacity_satellites,
+                    is_continuous_x=is_continuous_x,
+                    alpha=alpha,
+                    beta=beta,
+                    type_of_flexibility=type_of_flexibility,
+                    periods=12,
+                    N=self.N_evaluation,
+                    is_evaluation=True,
+                )
+                # set scenario expected
+                instance_expected.scenarios = {
+                    "expected": instance_expected.get_scenario_expected()
+                }
+                instances_train[id_instance] = instance_expected
 
             # evaluation instances
             id_instance = f"id_{index}_testing"

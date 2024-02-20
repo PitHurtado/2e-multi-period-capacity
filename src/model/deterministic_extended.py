@@ -363,3 +363,8 @@ class FlexibilityModelExtended:
         logger.info("[DETERMINISTIC] Solve model")
         self.model.optimize()
         logger.info("[DETERMINISTIC] Model solved")
+
+    def set_params(self, params: Dict[str, int]) -> None:
+        """Set parameters to model."""
+        for key, item in params.items():
+            self.model.setParam(key, item)
