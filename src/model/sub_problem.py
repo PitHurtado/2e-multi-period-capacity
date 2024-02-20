@@ -1,6 +1,6 @@
 """Module for the sub problem of the stochastic model."""
 import time
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import gurobipy as gp
 import numpy as np
@@ -15,10 +15,12 @@ from src.utils import LOGGER as logger
 class SubProblem:
     """Class for the sub problem of the stochastic model."""
 
-    def __init__(self, instance: Instance, period: int, scenario: Scenario) -> None:
+    def __init__(
+        self, instance: Instance, period: List[int], scenario: Scenario
+    ) -> None:
         """Initialize the sub problem."""
         # params from instance
-        self.t: int = period
+        self.periods: List[int] = period
         self.satellites: Dict[str, Satellite] = instance.satellites
         self.type_of_flexibility: str = instance.type_of_flexibility
         self.is_continuous_x: bool = instance.is_continuous_x
@@ -56,12 +58,13 @@ class SubProblem:
             self.Z = dict(
                 [
                     (
-                        (s, q_lower, self.t),
+                        (s, q_lower, t),
                         self.model.addVar(
-                            vtype=GRB.BINARY, name=f"Z_s{s}_q_{q_lower}_t{self.t}"
+                            vtype=GRB.BINARY, name=f"Z_s{s}_q_{q_lower}_t{t}"
                         ),
                     )
                     for s, satellite in satellites.items()
+                    for t in self.periods
                     for q in satellite.capacity.keys()
                     for q_lower in satellite.capacity.keys()
                     if fixed_y[(s, q)] > 0.5 and q >= q_lower
@@ -77,16 +80,17 @@ class SubProblem:
         self.X = dict(
             [
                 (
-                    (s, k, self.t),
+                    (s, k, t),
                     self.model.addVar(
                         vtype=type_variable,
-                        name=f"X_s{s}_k{k}_t{self.t}",
+                        name=f"X_s{s}_k{k}_t{t}",
                         lb=0.0,
                         ub=1.0,
                     ),
                 )
-                for s, satellite in satellites.items()
+                for t in self.periods
                 for k in pixels.keys()
+                for s, satellite in satellites.items()
                 if any(fixed_y[(s, q)] > 0.5 for q in satellite.capacity.keys())
             ]
         )
@@ -96,12 +100,13 @@ class SubProblem:
         self.W = dict(
             [
                 (
-                    (k, self.t),
+                    (k, t),
                     self.model.addVar(
-                        vtype=type_variable, name=f"W_k{k}_t{self.t}", lb=0.0, ub=1.0
+                        vtype=type_variable, name=f"W_k{k}_t{t}", lb=0.0, ub=1.0
                     ),
                 )
                 for k in pixels.keys()
+                for t in self.periods
             ]
         )
         logger.info(f"[SP] Number of variables W: {len(self.W)}")
@@ -117,27 +122,30 @@ class SubProblem:
         if self.type_of_flexibility == 2:
             self.cost_operating_satellites = quicksum(
                 [
-                    satellite.cost_operation[q][self.t] * self.Z[(s, q, self.t)]
+                    satellite.cost_operation[q][t] * self.Z[(s, q, t)]
+                    for t in self.periods
                     for s, satellite in satellites.items()
                     for q in satellite.capacity.keys()
-                    if (s, q, self.t) in self.Z.keys()
+                    if (s, q, t) in self.Z.keys()
                 ]
             )
 
         # 2. add cost served from satellite
         self.cost_served_from_satellite = quicksum(
             [
-                costs["satellite"][(s, k, self.t)]["total"] * self.X[(s, k, self.t)]
+                costs["satellite"][(s, k, t)]["total"] * self.X[(s, k, t)]
+                for t in self.periods
                 for s in satellites.keys()
                 for k in pixels.keys()
-                if (s, k, self.t) in self.X.keys()
+                if (s, k, t) in self.X.keys()
             ]
         )
 
         # 3. add cost served from dc
         self.cost_served_from_dc = quicksum(
             [
-                costs["dc"][(k, self.t)]["total"] * self.W[(k, self.t)]
+                costs["dc"][(k, t)]["total"] * self.W[(k, t)]
+                for t in self.periods
                 for k in pixels.keys()
             ]
         )
@@ -155,64 +163,67 @@ class SubProblem:
         """Add constraints to the model."""
         if self.type_of_flexibility == 1:
             # (5) capacity constraint
-            for s, satellite in satellites.items():
-                nameConstraint = f"R_capacity_s{s}_t{self.t}"
-                for q, capacity in satellite.capacity.items():
-                    if fixed_y[(s, q)] > 0.5:
+            for t in self.periods:
+                for s, satellite in satellites.items():
+                    nameConstraint = f"R_capacity_s{s}_t{t}"
+                    for q, capacity in satellite.capacity.items():
+                        if fixed_y[(s, q)] > 0.5:
+                            self.model.addConstr(
+                                quicksum(
+                                    [
+                                        self.X[(s, k, t)]
+                                        * self.fleet_size_required["satellite"][
+                                            (s, k, t)
+                                        ]["fleet_size"]
+                                        for k in pixels.keys()
+                                    ]
+                                )
+                                <= capacity,
+                                name=nameConstraint,
+                            )
+        else:
+            # (5) capacity constraint
+            for t in self.periods:
+                for s, satellite in self.satellites.items():
+                    if any(fixed_y[(s, q)] > 0.5 for q in satellite.capacity.keys()):
+                        nameConstraint = f"R_capacity_s{s}_t{t}"
                         self.model.addConstr(
                             quicksum(
                                 [
-                                    self.X[(s, k, self.t)]
-                                    * self.fleet_size_required["satellite"][
-                                        (s, k, self.t)
-                                    ]["fleet_size"]
-                                    for k in pixels.keys()
+                                    self.X[(s, k, t)]
+                                    * self.fleet_size_required["satellite"][(s, k, t)][
+                                        "fleet_size"
+                                    ]
+                                    for k in self.pixels.keys()
                                 ]
                             )
-                            <= capacity,
+                            - quicksum(
+                                [
+                                    self.Z[(s, q, t)] * capacity
+                                    for q, capacity in satellite.capacity.items()
+                                    if (s, q, t) in self.Z.keys()
+                                ]
+                            )
+                            <= 0,
                             name=nameConstraint,
                         )
-        else:
-            # (5) capacity constraint
-            for s, satellite in self.satellites.items():
-                if any(fixed_y[(s, q)] > 0.5 for q in satellite.capacity.keys()):
-                    nameConstraint = f"R_capacity_s{s}_t{self.t}"
-                    self.model.addConstr(
-                        quicksum(
-                            [
-                                self.X[(s, k, self.t)]
-                                * self.fleet_size_required["satellite"][(s, k, self.t)][
-                                    "fleet_size"
-                                ]
-                                for k in self.pixels.keys()
-                            ]
-                        )
-                        - quicksum(
-                            [
-                                self.Z[(s, q, self.t)] * capacity
-                                for q, capacity in satellite.capacity.items()
-                                if (s, q, self.t) in self.Z.keys()
-                            ]
-                        )
-                        <= 0,
-                        name=nameConstraint,
-                    )
 
         # (6) demand satisfied
-        for k in self.pixels.keys():
-            nameConstraint = f"R_demand_k{k}_t{self.t}"
-            self.model.addConstr(
-                quicksum(
-                    [
-                        self.X[(s, k, self.t)]
-                        for s in self.satellites.keys()
-                        if (s, k, self.t) in self.X.keys()
-                    ]
+        for t in self.periods:
+            for k in self.pixels.keys():
+                nameConstraint = f"R_demand_k{k}_t{t}"
+                self.model.addConstr(
+                    quicksum(
+                        [
+                            self.X[(s, k, t)]
+                            for s in self.satellites.keys()
+                            if (s, k, t) in self.X.keys()
+                        ]
+                    )
+                    + quicksum([self.W[(k, t)]])
+                    == 1,
+                    name=nameConstraint,
                 )
-                + quicksum([self.W[(k, self.t)]])
-                == 1,
-                name=nameConstraint,
-            )
 
     def solve_model(self, fixed_y: Dict[Any, float], final_solution: bool) -> None:
         """Solve the model of the sub problem considering the fixed y."""
@@ -227,7 +238,8 @@ class SubProblem:
         # adding operational costs only for case type of flexibility 1
         cost_operating_satellites = np.sum(
             [
-                satellite.cost_operation[q][self.t]
+                satellite.cost_operation[q][t]
+                for t in self.periods
                 for s, satellite in self.satellites.items()
                 for q in satellite.capacity.keys()
                 if self.type_of_flexibility == 1 and fixed_y[(s, q)] > 0.5
