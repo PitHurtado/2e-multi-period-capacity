@@ -60,12 +60,15 @@ class FlexibilityModelExtended:
             self.Z = dict(
                 [
                     (
-                        (s, q, t),
-                        self.model.addVar(vtype=GRB.BINARY, name=f"Z_s{s}_q{q}_t{t}"),
+                        (s, q, n, t),
+                        self.model.addVar(
+                            vtype=GRB.BINARY, name=f"Z_s{s}_q{q}_n{n}_t{t}"
+                        ),
                     )
                     for s, satellite in satellites.items()
                     for q in satellite.capacity.keys()
                     for t in range(self.periods)
+                    for n in scenarios.keys()
                 ]
             )
         logger.info(f"[DETERMINISTIC] Number of variables Z: {len(self.Z)}")
@@ -150,10 +153,13 @@ class FlexibilityModelExtended:
         else:
             self.cost_operating_satellites = quicksum(
                 [
-                    satellite.cost_operation[q][t] * self.Z[(s, q, t)]
+                    (1 / len(scenarios))
+                    * satellite.cost_operation[q][t]
+                    * self.Z[(s, q, n, t)]
                     for s, satellite in satellites.items()
                     for q in satellite.capacity.keys()
                     for t in range(self.periods)
+                    for n in scenarios.keys()
                 ]
             )
 
@@ -198,8 +204,8 @@ class FlexibilityModelExtended:
         """Add constraints to model."""
 
         if self.type_of_flexibility == 2:
-            self.__add_constr_activation_satellite(satellites)
-            self.__add_constr_operating_capacity_satellite(satellites)
+            self.__add_constr_activation_satellite(satellites, scenarios)
+            self.__add_constr_operating_capacity_satellite(satellites, scenarios)
 
         self.__add_constr_installation_satellite(satellites)
         self.__add_constr_capacity_satellite(satellites, scenarios)
@@ -221,45 +227,51 @@ class FlexibilityModelExtended:
             )
 
     def __add_constr_activation_satellite(
-        self, satellites: Dict[str, Satellite]
+        self, satellites: Dict[str, Satellite], scenarios: Dict[str, Scenario]
     ) -> None:
         """Add constraint activation satellite."""
         logger.info("[DETERMINISTIC] Add constraint activation satellite")
         for s, satellite in satellites.items():
-            for t in range(self.periods):
-                nameConstraint = f"R_activation_s{s}_t{t}"
-                self.model.addConstr(
-                    quicksum([self.Z[(s, q, t)] for q in satellite.capacity.keys()])
-                    <= quicksum([self.Y[(s, q)] for q in satellite.capacity.keys()]),
-                    name=nameConstraint,
-                )
+            for n in scenarios.keys():
+                for t in range(self.periods):
+                    nameConstraint = f"R_activation_s{s}_n{n}_t{t}"
+                    self.model.addConstr(
+                        quicksum(
+                            [self.Z[(s, q, n, t)] for q in satellite.capacity.keys()]
+                        )
+                        <= quicksum(
+                            [self.Y[(s, q)] for q in satellite.capacity.keys()]
+                        ),
+                        name=nameConstraint,
+                    )
 
     def __add_constr_operating_capacity_satellite(
-        self, satellites: Dict[str, Satellite]
+        self, satellites: Dict[str, Satellite], scenarios: Dict[str, Scenario]
     ) -> None:
         """Add constraint operating satellite."""
         logger.info("[DETERMINISTIC] Add constraint operating satellite")
         for t in range(self.periods):
-            for s, satellite in satellites.items():
-                max_capacity = max(satellite.capacity.values())
-                for q, q_value in satellite.capacity.items():
-                    if q_value < max_capacity:
-                        nameConstraint = f"R_Operating_s{s}_q{q}_t{t}"
-                        q_higher_values = [
-                            q_higher
-                            for q_higher in satellite.capacity.keys()
-                            if q_higher > q
-                        ]
-                        self.model.addConstr(
-                            quicksum(
-                                [
-                                    self.Z[(s, q_higher, t)]
-                                    for q_higher in q_higher_values
-                                ]
+            for n in scenarios.keys():
+                for s, satellite in satellites.items():
+                    max_capacity = max(satellite.capacity.values())
+                    for q, q_value in satellite.capacity.items():
+                        if q_value < max_capacity:
+                            nameConstraint = f"R_Operating_s{s}_q{q}_n{n}_t{t}"
+                            q_higher_values = [
+                                q_higher
+                                for q_higher in satellite.capacity.keys()
+                                if q_higher > q
+                            ]
+                            self.model.addConstr(
+                                quicksum(
+                                    [
+                                        self.Z[(s, q_higher, n, t)]
+                                        for q_higher in q_higher_values
+                                    ]
+                                )
+                                <= 1 - self.Y[(s, q)],
+                                name=nameConstraint,
                             )
-                            <= 1 - self.Y[(s, q)],
-                            name=nameConstraint,
-                        )
 
     def __add_constr_capacity_satellite(
         self,
@@ -286,7 +298,7 @@ class FlexibilityModelExtended:
                             )
                             - quicksum(
                                 [
-                                    self.Z[(s, q, t)] * capacity
+                                    self.Z[(s, q, n, t)] * capacity
                                     for q, capacity in satellite.capacity.items()
                                 ]
                             )
