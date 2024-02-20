@@ -1,6 +1,6 @@
 """Module for the sub problem of the stochastic model."""
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import gurobipy as gp
 import numpy as np
@@ -15,12 +15,10 @@ from src.utils import LOGGER as logger
 class SubProblem:
     """Class for the sub problem of the stochastic model."""
 
-    def __init__(
-        self, instance: Instance, period: List[int], scenario: Scenario
-    ) -> None:
+    def __init__(self, instance: Instance, periods: int, scenario: Scenario) -> None:
         """Initialize the sub problem."""
         # params from instance
-        self.periods: List[int] = period
+        self.periods: int = periods
         self.satellites: Dict[str, Satellite] = instance.satellites
         self.type_of_flexibility: str = instance.type_of_flexibility
         self.is_continuous_x: bool = instance.is_continuous_x
@@ -64,7 +62,7 @@ class SubProblem:
                         ),
                     )
                     for s, satellite in satellites.items()
-                    for t in self.periods
+                    for t in range(self.periods)
                     for q in satellite.capacity.keys()
                     for q_lower in satellite.capacity.keys()
                     if fixed_y[(s, q)] > 0.5 and q >= q_lower
@@ -88,7 +86,7 @@ class SubProblem:
                         ub=1.0,
                     ),
                 )
-                for t in self.periods
+                for t in range(self.periods)
                 for k in pixels.keys()
                 for s, satellite in satellites.items()
                 if any(fixed_y[(s, q)] > 0.5 for q in satellite.capacity.keys())
@@ -106,7 +104,7 @@ class SubProblem:
                     ),
                 )
                 for k in pixels.keys()
-                for t in self.periods
+                for t in range(self.periods)
             ]
         )
         logger.info(f"[SP] Number of variables W: {len(self.W)}")
@@ -123,7 +121,7 @@ class SubProblem:
             self.cost_operating_satellites = quicksum(
                 [
                     satellite.cost_operation[q][t] * self.Z[(s, q, t)]
-                    for t in self.periods
+                    for t in range(self.periods)
                     for s, satellite in satellites.items()
                     for q in satellite.capacity.keys()
                     if (s, q, t) in self.Z.keys()
@@ -134,7 +132,7 @@ class SubProblem:
         self.cost_served_from_satellite = quicksum(
             [
                 costs["satellite"][(s, k, t)]["total"] * self.X[(s, k, t)]
-                for t in self.periods
+                for t in range(self.periods)
                 for s in satellites.keys()
                 for k in pixels.keys()
                 if (s, k, t) in self.X.keys()
@@ -145,7 +143,7 @@ class SubProblem:
         self.cost_served_from_dc = quicksum(
             [
                 costs["dc"][(k, t)]["total"] * self.W[(k, t)]
-                for t in self.periods
+                for t in range(self.periods)
                 for k in pixels.keys()
             ]
         )
@@ -163,7 +161,7 @@ class SubProblem:
         """Add constraints to the model."""
         if self.type_of_flexibility == 1:
             # (5) capacity constraint
-            for t in self.periods:
+            for t in range(self.periods):
                 for s, satellite in satellites.items():
                     nameConstraint = f"R_capacity_s{s}_t{t}"
                     for q, capacity in satellite.capacity.items():
@@ -183,7 +181,7 @@ class SubProblem:
                             )
         else:
             # (5) capacity constraint
-            for t in self.periods:
+            for t in range(self.periods):
                 for s, satellite in self.satellites.items():
                     if any(fixed_y[(s, q)] > 0.5 for q in satellite.capacity.keys()):
                         nameConstraint = f"R_capacity_s{s}_t{t}"
@@ -209,7 +207,7 @@ class SubProblem:
                         )
 
         # (6) demand satisfied
-        for t in self.periods:
+        for t in range(self.periods):
             for k in self.pixels.keys():
                 nameConstraint = f"R_demand_k{k}_t{t}"
                 self.model.addConstr(
@@ -239,7 +237,7 @@ class SubProblem:
         cost_operating_satellites = np.sum(
             [
                 satellite.cost_operation[q][t]
-                for t in self.periods
+                for t in range(self.periods)
                 for s, satellite in self.satellites.items()
                 for q in satellite.capacity.keys()
                 if self.type_of_flexibility == 1 and fixed_y[(s, q)] > 0.5
