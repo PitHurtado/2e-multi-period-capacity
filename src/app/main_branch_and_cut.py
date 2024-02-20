@@ -3,7 +3,6 @@ import cProfile
 import io
 import json
 import pstats
-from typing import Any, Dict, List
 
 from src.instance.instance import Instance
 from src.instance.scenario import Scenario
@@ -12,8 +11,9 @@ from src.utils import LOGGER as logger
 
 if __name__ == "__main__":
     # (1) Generate instance
-    folder_path = "../results/byc/"
+    folder_path = "./data/results/byc/"
     logger.info("[MAIN BRANCH AND CUT] Generating instances")
+
     instance_to_solve: Instance = Instance(
         id_instance="expected",
         capacity_satellites={"2": 2, "4": 4, "6": 6, "8": 8},
@@ -44,34 +44,17 @@ if __name__ == "__main__":
     ps = pstats.Stats(pr, stream=s)
     ps.strip_dirs().sort_stats("cumulative").print_stats(10)
 
-    print(s.getvalue())
-    # (3) Save results:
-    Y_solution = {str(keys): value.X for keys, value in solver.MP.model._Y.items()}
-    # Y_solution["objective"] = solver.MP.model._total_cost.getValue()
-    # Y_solution[
-    #     "cost_installation_satellites"
-    # ] = solver.MP.model._cost_installation_satellites.getValue()
+    print(f"Profile: {s.getvalue()}")
 
-    # path_file_output = (
-    #     folder_path + f"deterministic_{instance_to_solve.id_instance}.json"
-    # )
-    # with open(path_file_output, "w") as file:
-    #     file.write(json.dumps(Y_solution, indent=4))
-    # print(f"Results saved in {path_file_output}")
+    # (3) Save results:
+    results = solver.get_metrics_evaluation()
+
+    path_file_output = (
+        folder_path + f"branch_and_cut_{instance_to_solve.id_instance}.json"
+    )
+    with open(path_file_output, "w") as file:
+        file.write(json.dumps(results, indent=4))
+    print(f"Results saved in {path_file_output}")
 
     print("-----------------------------------")
-    print(json.dumps(Y_solution, indent=4))
-
-    # solver = Branch_and_Cut(problem)
-
-    # pr = cProfile.Profile()
-    # pr.enable()
-
-    # solver.solve(max_run_time)
-
-    # pr.disable()
-    # s = io.StringIO()
-    # ps = pstats.Stats(pr, stream=s)
-    # ps.strip_dirs().sort_stats('cumulative').print_stats(10)
-
-    # print(s.getvalue())
+    print(json.dumps(results, indent=4))

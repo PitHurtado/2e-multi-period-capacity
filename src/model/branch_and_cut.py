@@ -88,12 +88,15 @@ class Branch_and_Cut:
         """Get metrics of the evaluation"""
         metrics = {
             "id_instance": self.instance.id_instance,
-            "cost_installed_satellites": self.MP.model._cost_allocation_satellites.getValue(),
+            "cost_installed_satellites": self.MP.model._cost_installation_satellites.getValue(),
             "run_time": self.run_time,
             "optimality_gap": self.optimality_gap,
             "objective_value": self.objective_value,
             "best_bound_value": self.best_bound_value,
-            "solution": self.Cuts.best_solution,
+            "solution": {
+                str(key): value for key, value in self.Cuts.best_solution.items()
+            },
+            "cost_second_echeleon": self.MP.model._cost_second_stage.getValue(),
         }
         return metrics
 
