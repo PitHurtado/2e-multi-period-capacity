@@ -111,14 +111,13 @@ class SubProblem:
         satellites: Dict[str, Satellite],
         pixels: Dict[str, Pixel],
         costs: Dict,
-        fixed_y: Dict,
     ) -> None:
         """Add objective function to the model."""
         # 1. add cost operating satellites
         if self.type_of_flexibility == 2:
             self.cost_operating_satellites = quicksum(
                 [
-                    satellite.cost_operation[q][self.t] / 8 * self.Z[(s, q, self.t)]
+                    satellite.cost_operation[q][self.t] * self.Z[(s, q, self.t)]
                     for s, satellite in satellites.items()
                     for q in satellite.capacity.keys()
                     if (s, q, self.t) in self.Z.keys()
@@ -220,15 +219,15 @@ class SubProblem:
         # Create model
         self.model = gp.Model(name="SubProblem")
 
-        logger.info("[SUBPROBLEM] Model created")
+        logger.info("[SP] Model created")
         self.__add_variables(self.satellites, self.pixels, fixed_y)
-        self.__add_objective(self.satellites, self.pixels, self.costs_serving, fixed_y)
+        self.__add_objective(self.satellites, self.pixels, self.costs_serving)
         self.__add_constraints(self.satellites, self.pixels, fixed_y)
 
         # adding operational costs only for case type of flexibility 1
         cost_operating_satellites = np.sum(
             [
-                satellite.cost_operation[q][self.t] / 8
+                satellite.cost_operation[q][self.t]
                 for s, satellite in self.satellites.items()
                 for q in satellite.capacity.keys()
                 if self.type_of_flexibility == 1 and fixed_y[(s, q)] > 0.5
@@ -240,9 +239,9 @@ class SubProblem:
             self.model._total_cost = self.objective
             self.model.update()
             self.model.Params.LogToConsole = 0
+
             start_time = time.time()
             self.model.optimize()
-
             run_time = round(time.time() - start_time, 3)
             total_cost = self.model._total_cost.getValue() + cost_operating_satellites
 
@@ -294,8 +293,8 @@ class SubProblem:
             }
 
             self.model.dispose()
-            logger.info("[SUBPROBLEM] Sub problem solved")
-            logger.info(f"Run time: {run_time}")
+            logger.info("[SP] Sub problem solved")
+            logger.info(f"[SP]Run time: {run_time}")
 
             total_cost = {
                 "sp_total_cost": total_cost,
