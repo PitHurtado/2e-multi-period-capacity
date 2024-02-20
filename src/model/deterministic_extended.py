@@ -144,7 +144,9 @@ class FlexibilityModelExtended:
         if self.type_of_flexibility == 1:
             self.cost_operating_satellites = quicksum(
                 [
-                    satellite.cost_operation[q][t] * self.Y[(s, q)]
+                    (1 / len(scenarios))
+                    * satellite.cost_operation[q][t]
+                    * self.Y[(s, q)]
                     for s, satellite in satellites.items()
                     for q in satellite.capacity.keys()
                     for t in range(self.periods)
