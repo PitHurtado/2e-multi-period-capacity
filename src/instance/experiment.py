@@ -17,7 +17,7 @@ class Experiment:
     def __get_combinations(self) -> itertools.product:
         """Return a list of combinations"""
         N = [10, 20, 30]
-        capacity_satellites = [[2, 6, 12],[2, 6, 8, 12], [2, 4, 6, 8, 12]]
+        capacity_satellites = [[2, 6, 12], [2, 6, 8, 12], [2, 4, 6, 8, 12]]
         is_continuous_x = [False, True]
         type_of_flexibility = [1, 2]
         alpha = [1.0]
