@@ -69,21 +69,13 @@ class Cuts:
         total_cost = (
             np.sum(
                 [
-                    satellite.cost_fixed[q] / 20 * Y[(s, q)]
+                    satellite.cost_fixed[q] * Y[(s, q)]
                     for s, satellite in Cuts.instance.satellites.items()
                     for q in satellite.capacity.keys()
                 ]
             )
             + (1 / (len(Cuts.instance.scenarios))) * total_subproblem_cost
         )
-
-        print(f" total cost {total_cost}")
-        # print(f"cost installation {cost_installation}")
-
-        # if not any(Y[(s, q)] > 0.5 for s, satellite in Cuts.instance.satellites.items() for q in satellite.capacity.keys()):
-
-        #     print("no instalado")
-        # sys.exit(1)
 
         # update upper bound and best solution found so far
         if total_cost < Cuts.upper_bound + 1:
@@ -96,10 +88,10 @@ class Cuts:
             model.cbUseSolution()
 
         # add optimality cuts
+        epsilon = 1e-6
         for t in range(Cuts.periods):
             for n in Cuts.instance.scenarios.keys():
-                if θ[(n, t)] < new_θ[(n, t)]:
-                    # Create the activation function:
+                if θ[(n, t)] < new_θ[(n, t)] + epsilon:
                     act_function = Cuts.get_activation_function(model, Y)
                     model.cbLazy(
                         model._θ[(n, t)]
@@ -126,7 +118,7 @@ class Cuts:
                 model._Y[(s, q)]
                 for s, satellite in Cuts.satellites.items()
                 for q in satellite.capacity.keys()
-                if Y[(s, q)] < 0.1
+                if Y[(s, q)] < 0.5
             )
             - np.sum(
                 [
