@@ -60,7 +60,7 @@ class Data:
                 logger.info(
                     "-" * 50 + "\n" + json.dumps(s.__dict__, indent=2, default=str)
                 )
-        logger.info(f"[ETL] Count of SATELLITES loaded: {len(satellites)}")
+        # logger.info(f"[ETL] Count of SATELLITES loaded: {len(satellites)}")
         return satellites
 
     @staticmethod
@@ -177,9 +177,9 @@ class Data:
                 logger.info(
                     "-" * 50 + "\n" + json.dumps(p.__dict__, indent=2, default=str)
                 )
-        logger.info(
-            f"[ETL] Count of PIXELS loaded from instances: {len(pixels)} - scenario {id_scenario}"
-        )
+        # logger.info(
+        #     f"[ETL] Count of PIXELS loaded from instances: {len(pixels)} - scenario {id_scenario}"
+        # )
         return pixels
 
     @staticmethod
@@ -211,9 +211,9 @@ class Data:
             max_time_services=12,
             k=1.3,
         )
-        logger.info(
-            f"[ETL] Quantity of vehicles loaded: {len([vehicle_small, vehicle_large])}"
-        )
+        # logger.info(
+        #     f"[ETL] Quantity of vehicles loaded: {len([vehicle_small, vehicle_large])}"
+        # )
         return {"small": vehicle_small, "large": vehicle_large}
 
     @staticmethod

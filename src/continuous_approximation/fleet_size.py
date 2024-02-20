@@ -103,7 +103,7 @@ class ContinuousApproximationConfig:
         satellites: Dict[str, Satellite],
     ) -> Dict[Any, float]:
         """Calculate the average fleet size for a pixel in a period of time"""
-        logger.info("[CA] Estimation of fleet size running for satellites")
+        # logger.info("[CA] Estimation of fleet size running for satellites")
         fleet_size = dict(
             [
                 (
@@ -125,7 +125,7 @@ class ContinuousApproximationConfig:
         distances_line_haul: Dict[str, float],
     ) -> Dict[Any, float]:
         """Calculate the average fleet size for a pixel in a period of time"""
-        logger.info("[CA] Estimation of fleet size running for DC")
+        # logger.info("[CA] Estimation of fleet size running for DC")
         fleet_size = dict(
             [
                 (

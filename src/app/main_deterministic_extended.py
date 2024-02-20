@@ -1,8 +1,9 @@
 """Main module for the SAA application."""
 import json
+import logging
 
 from src.instance.experiment import Experiment
-from src.instance.instance import Instance # type: ignore
+from src.instance.instance import Instance  # type: ignore
 from src.model.deterministic_extended import FlexibilityModelExtended
 from src.utils import LOGGER as logger
 
@@ -15,18 +16,23 @@ if __name__ == "__main__":
 
     # (1.1) Generate instance:
     instance_generated = Experiment(
-        N_evaluation=1, M=1, folder_path=folder_path
+        N_evaluation=0, M=1, folder_path=folder_path
     ).generate_instances()
     # (1.2) Select instance to solve:
     for i, experiment in enumerate(instance_generated):
         id_experiment = (1 + i) * 100
         logger.info(f"[MAIN DETERMINISTIC EXTENDED] Experiment {id_experiment} started")
         for id_instance, instance in experiment["instances_train"].items():
-            logger.info(f"[MAIN DETERMINISTIC EXTENDED] Instance to solve {instance}")
+            logger.info(f"[MAIN DETERMINISTIC EXTENDED] Instance to solve \n{instance}")
             # (2) Create model:
+
+            logger.disabled = True
+            logging.disable(logging.CRITICAL)
             solver = FlexibilityModelExtended(instance)
             solver.build()
             solver.solve()
+            logger.disabled = False
+            logging.disable(logging.NOTSET)
 
             # (3) Save results:
             Y_solution = {str(keys): value.X for keys, value in solver.model._Y.items()}
