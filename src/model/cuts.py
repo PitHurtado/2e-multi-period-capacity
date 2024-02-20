@@ -55,7 +55,9 @@ class Cuts:
         new_θ = {}
         for n in Cuts.instance.scenarios.keys():
             logger.info(f"[CUT] Subproblem: {n}")
-            subproblem_runtime, subproblem_cost = Cuts.SPs[n].solve_model(Y, False)
+            subproblem_runtime, subproblem_cost = Cuts.SPs[n].solve_model(
+                Y, False
+            )
             Cuts.subproblem_solved += 1
             new_θ[n] = subproblem_cost
             total_subproblem_cost += subproblem_cost
@@ -66,7 +68,7 @@ class Cuts:
         total_cost = (
             np.sum(
                 [
-                    satellite.cost_fixed[q] / 20 * Y[(s, q)]
+                    satellite.cost_fixed[q] * Y[(s, q)]
                     for s, satellite in Cuts.instance.satellites.items()
                     for q in satellite.capacity.keys()
                 ]
@@ -90,7 +92,11 @@ class Cuts:
             if θ[n] < new_θ[n] + epsilon:
                 act_function = Cuts.get_activation_function(model, Y)
                 model.cbLazy(
-                    model._θ[n] >= (new_θ[n] + (new_θ[n] - Cuts.LB[n]) * act_function)
+                    model._θ[n]
+                    >= (
+                        new_θ[n]
+                        + (new_θ[n] - Cuts.LB[n]) * act_function
+                    )
                 )
 
                 Cuts.optimality_cuts += 1
@@ -128,9 +134,7 @@ class Cuts:
         subproblems = {}
         for n in instance.scenarios.keys():
             scenario = instance.scenarios[n]
-            subproblems[n] = SubProblem(
-                instance, list(range(instance.periods)), scenario
-            )
+            subproblems[n] = SubProblem(instance, instance.periods, scenario)
         return subproblems
 
     @staticmethod
