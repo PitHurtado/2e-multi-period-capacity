@@ -16,19 +16,12 @@ class Experiment:
 
     def __get_combinations(self) -> itertools.product:
         """Return a list of combinations"""
-        N = [2]
-        capacity_satellites = [[2, 6, 12]]
-        is_continuous_x = [False]
+        N = [10, 20, 30, 40, 50]
+        capacity_satellites = [[2, 6, 12], [2, 4, 6, 8], [2, 4, 6, 8, 12]]
+        is_continuous_x = [False, True]
         type_of_flexibility = [1, 2]
-        alpha = [0.1]
-        beta = [0.1]
-        # TODO add more combinations
-        # N = [10, 20, 30, 40, 50]
-        # capacity_satellites = [[2, 6, 12], [2, 4, 6, 8], [2, 4, 6, 8, 12]]
-        # is_continuous_x = [True, False]
-        # type_of_flexibility = [1, 2]
-        # alpha = [0.1, 0.5]
-        # beta = [0.1, 0.5]
+        alpha = [1.0, 2.0]
+        beta = [1.0, 2.0]
         return itertools.product(
             N, capacity_satellites, is_continuous_x, type_of_flexibility, alpha, beta
         )
