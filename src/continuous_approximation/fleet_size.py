@@ -52,7 +52,7 @@ class ContinuousApproximationConfig:
 
         # time services
         time_services = (
-            vehicle.time_fixed + vehicle.time_service * pixel.drop_by_period[t]
+            vehicle.time_set_up + vehicle.time_service * pixel.drop_by_period[t]
         )
 
         # time intra stop
@@ -66,15 +66,17 @@ class ContinuousApproximationConfig:
 
         # time preparing
         time_preparing_dispatch = (
-            vehicle.time_dispatch
-            + effective_vehicle_capacity * pixel.drop_by_period[t] * vehicle.time_load
+            vehicle.time_prep
+            + effective_vehicle_capacity
+            * pixel.drop_by_period[t]
+            * vehicle.time_loading_per_item
         )
 
         # time line_haul
-        time_line_haul = 2 * (distance * vehicle.k / vehicle.speed_line_haul)
+        time_line_haul = 2 * (distance * vehicle.k / vehicle.speed_linehaul)
 
         # number of fully loaded tours
-        beta = vehicle.max_time_services / (
+        beta = vehicle.t_max / (
             avg_tour_time + time_preparing_dispatch + time_line_haul
         )
         avg_time = avg_tour_time + time_preparing_dispatch + time_line_haul

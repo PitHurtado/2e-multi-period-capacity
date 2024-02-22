@@ -47,13 +47,13 @@ class ContinuousApproximation:
         """Calculate the time intra stop for a pixel and a vehicle at a given period."""
         return (vehicle.k * pixel.k) / (
             vehicle.speed_interstop
-            * math.sqrt(pixel.demand_by_period[t] / pixel.area_surface)
+            * math.sqrt(pixel.drop_by_period[t] / pixel.area_surface)
         )
 
     def __distance_intra_stop(self, pixel: Pixel, vehicle: Vehicle, t: int) -> float:
         """Calculate the distance intra stop for a pixel and a vehicle at a given period."""  # pylint: disable=line-too-long
         return (vehicle.k * pixel.k) / math.sqrt(
-            pixel.demand_by_period[t] / pixel.area_surface
+            pixel.drop_by_period[t] / pixel.area_surface
         )
 
     def __time_linehaul(self, vehicle: Vehicle, distance: float) -> float:
@@ -141,7 +141,7 @@ class ContinuousApproximation:
             }
 
         # (7) average fleet size
-        numerador = pixel.demand_by_period[t] * pixel.area_surface
+        numerador = pixel.stop_by_period[t]
         denominador = self.__num_fully_loaded_tours(
             pixel, vehicle, t, distance
         ) * self.__effective_vehicle_capacity(vehicle, pixel, t)
@@ -225,11 +225,11 @@ class ContinuousApproximation:
                 + cost_linehaul_distance  # Component 2: Line Haul Time + Distance Costs
                 + cost_segment_time
                 + cost_segment_distance  # Component 3: Intra-Route Costs
-                + vehicle.cost_item
-                * pixel.drop_by_period[t]
-                * self.__num_customers_per_route(
-                    pixel, vehicle, t, distance
-                )  # Component 4: Parcel-Based Costs
+                # + vehicle.cost_item
+                # * pixel.drop_by_period[t]
+                # * self.__num_customers_per_route(
+                #     pixel, vehicle, t, distance
+                # )  # Component 4: Parcel-Based Costs
             )
         )
         return {
