@@ -139,52 +139,26 @@ class ContinuousApproximation:
                 "avg_time_dispatch": 0,
                 "avg_time_line_haul": 0,
             }
-        # (2) time services
-        time_services = (
-            vehicle.time_set_up + vehicle.time_service * pixel.drop_by_period[t]
-        )
-
-        # (2) time intra stop
-        time_intra_stop = self.__time_linehaul(vehicle, distance)
-
-        # (3) average tour time full loaded
-        avg_tour_time = self.__effective_vehicle_capacity(vehicle, pixel, t) * (
-            time_services + time_intra_stop
-        )
-
-        # (4) time preparing
-        time_preparing_dispatch = (
-            vehicle.time_prep
-            + self.__effective_vehicle_capacity(vehicle, pixel, t)
-            * pixel.drop_by_period[t]
-            * vehicle.time_loading_per_item
-        )
-
-        # (5) time line_haul
-        time_line_haul = 2 * (distance * vehicle.k / vehicle.speed_linehaul)
-
-        # (6) number of fully loaded tours
-        beta = vehicle.t_max / (
-            avg_tour_time + time_preparing_dispatch + time_line_haul
-        )
-        avg_time = avg_tour_time + time_preparing_dispatch + time_line_haul
 
         # (7) average fleet size
         numerador = pixel.demand_by_period[t] * pixel.area_surface
-        denominador = beta * self.__effective_vehicle_capacity(vehicle, pixel, t)
+        denominador = self.__num_fully_loaded_tours(
+            pixel, vehicle, t, distance
+        ) * self.__effective_vehicle_capacity(vehicle, pixel, t)
         v = (numerador / denominador) if denominador > 0 else 0.0
 
         return {
             "fleet_size": v,
-            "avg_tour_time_full_loaded": avg_tour_time,
-            "fully_loaded_tours": beta,
+            "avg_tour_time_full_loaded": self.__time_average_tour(pixel, vehicle, t),
+            "num_fully_loaded_tours": self.__num_fully_loaded_tours(
+                pixel, vehicle, t, distance
+            ),
             "effective_capacity": self.__effective_vehicle_capacity(vehicle, pixel, t),
             "demand_served": pixel.demand_by_period[t],
             "avg_drop": pixel.drop_by_period[t],
             "avg_stop": pixel.stop_by_period[t],
-            "avg_time": avg_time,
-            "avg_time_dispatch": time_preparing_dispatch,
-            "avg_time_line_haul": time_line_haul,
+            "avg_time_tour": self.__time_average_tour(pixel, vehicle, t),
+            "avg_time_line_haul": self.__time_linehaul(vehicle, distance),
         }
 
     def __cost_serve_pixel(
