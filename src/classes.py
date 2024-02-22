@@ -106,8 +106,8 @@ class Vehicle:
         self.capacity = capacity
         self.cost_fixed = cost_fixed
         self.cost_hourly = cost_hourly
-        self.cost_item = cost_item
         self.cost_km = cost_km
+        self.cost_item = cost_item
 
         self.time_set_up = time_set_up
         self.time_service = time_service

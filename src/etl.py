@@ -7,6 +7,7 @@ from typing import Dict
 import pandas as pd
 
 from src.classes import Pixel, Satellite, Vehicle
+from src.config import LARGE_CONFIG, SMALL_CONFIG
 from src.constants import (
     PATH_DATA_DISTANCES_FROM_DC,
     PATH_DATA_DISTANCES_FROM_SATELLITES,
@@ -176,43 +177,23 @@ class Data:
             for p in pixels.values():
                 logger.info(
                     "-" * 50 + "\n" + json.dumps(p.__dict__, indent=2, default=str)
-                )
+                )  # pylint: disable=no-member
         # logger.info(
-        #     f"[ETL] Count of PIXELS loaded from instances: {len(pixels)} - scenario {id_scenario}"
+        #     f"[ETL] Count of PIXELS loaded from instances: {len(pixels)} - scenario {id_scenario}" # pylint: disable=line-too-long
         # )
         return pixels
 
     @staticmethod
     def load_vehicles() -> Dict[str, Vehicle]:
         """Load data from csv file and create a dictionary of distances and durations"""
-        vehicle_small = Vehicle(
-            id_vehicle="small",
-            type_vehicle="small",
-            capacity=115,
-            cost_fixed=49,
-            time_service=0.01,
-            time_fixed=0.025,
-            time_dispatch=0.33,
-            time_load=0.00071,
-            speed_line_haul=45,
-            max_time_services=12,
-            k=1.3,
-        )
         vehicle_large = Vehicle(
-            id_vehicle="large",
-            type_vehicle="large",
-            capacity=460,
-            cost_fixed=439,
-            time_service=0.02,
-            time_fixed=0.05,
-            time_dispatch=1.75,
-            time_load=0.0071,
-            speed_line_haul=25,
-            max_time_services=12,
-            k=1.3,
+            **LARGE_CONFIG,
+        )
+        vehicle_small = Vehicle(
+            **SMALL_CONFIG,
         )
         # logger.info(
-        #     f"[ETL] Quantity of vehicles loaded: {len([vehicle_small, vehicle_large])}"
+        #     f"[ETL] Quantity of vehicles loaded: {len([vehicle_small, vehicle_large])}" # pylint: disable=line-too-long
         # )
         return {"small": vehicle_small, "large": vehicle_large}
 
