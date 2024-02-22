@@ -17,9 +17,9 @@ class ContinuousApproximationConfig:
         small_vehicle: Vehicle,
         large_vehicle: Vehicle,
     ) -> None:
-        self.periods = periods
-        self.small_vehicle = small_vehicle
-        self.large_vehicle = large_vehicle
+        self.periods: int = periods
+        self.small_vehicle: Vehicle = small_vehicle
+        self.large_vehicle: Vehicle = large_vehicle
 
     def __avg_fleet_size(
         self, pixel: Pixel, vehicle: Vehicle, t: int, distance: float
@@ -31,7 +31,8 @@ class ContinuousApproximationConfig:
             or pixel.demand_by_period[t] <= 0
         ):
             logger.warning(
-                f"[CA] Pixel {pixel.id_pixel} in period {t} has no demand or no stops or no drops"
+                f"[CA] Pixel {pixel.id_pixel} in period {t} "
+                f"has no demand or no stops or no drops"
             )
             return {
                 "fleet_size": 0,
