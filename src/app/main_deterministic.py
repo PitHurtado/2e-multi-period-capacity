@@ -9,11 +9,11 @@ if __name__ == "__main__":
     logger.info("[MAIN DETERMINISTIC] Starting deterministic model")
 
     # (1) Generate instance:
-    folder_path = "./data/results/deterministic/"
+    FOLDER_PATH = "./data/results/deterministic/"
     logger.info("[MAIN DETERMINISTIC] Generating instances")
     instance_to_solve: Instance = Instance(
-        id_instance="expected",
-        capacity_satellites={"2": 2, "4": 4, "6": 6, "8": 8},
+        id_instance="expected_fixed",
+        capacity_satellites={"2": 2, "4": 4, "6": 6, "8": 8, "10": 10, "12": 12},
         is_continuous_x=False,
         alpha=0.5,
         beta=0.5,
@@ -31,6 +31,11 @@ if __name__ == "__main__":
     )
     model = FlexibilityModel(instance_to_solve)
     model.build()
+    params = {
+        "TimeLimit": 3600,
+        "MIPGap": 0.005,
+    }
+    model.set_params(params)
     model.solve()
 
     # (3) Save results:
@@ -47,7 +52,7 @@ if __name__ == "__main__":
     Y_solution["scenarios"] = instance_to_solve.get_info()
 
     path_file_output = (
-        folder_path + f"deterministic_{instance_to_solve.id_instance}.json"
+        FOLDER_PATH + f"deterministic_{instance_to_solve.id_instance}.json"
     )
     with open(path_file_output, "w") as file:
         file.write(json.dumps(Y_solution, indent=4))

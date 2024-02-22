@@ -1,27 +1,24 @@
 """Main module for the SAA application."""
-import json
-import logging
 import sys
 
 from src.app.main_local import Main
 from src.instance.experiment import Experiment
-from src.instance.instance import Instance  # type: ignore
 from src.utils import LOGGER as logger
 
 if __name__ == "__main__":
     # (1) Generate instance:
-    folder_path = "./data/results/deterministic_extended/"
+    FOLDER_PATH = "./data/results/deterministic_extended/"
 
     logger.info("[MAIN DETERMINISTIC EXTENDED] Starting deterministic model")
     logger.info("[MAIN DETERMINISTIC EXTENDED] Generating instances")
 
     # (1.1) Generate instance:
     instance_list = Experiment(
-        N_evaluation=0, M=1, folder_path=folder_path
+        N_evaluation=0, M=10, folder_path=FOLDER_PATH
     ).generate_instances(include_expected=True)
 
     # (2) select cluster into supercloud
-    main = Main(folder_path)
+    main = Main(FOLDER_PATH)
 
     # (3) Get the pointers to the subset of instances to solve
     my_task_id = int(sys.argv[1])

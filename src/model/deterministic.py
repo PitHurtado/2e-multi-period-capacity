@@ -210,6 +210,18 @@ class FlexibilityModel:
 
         # dummi constraints
         # self.__add_constr_dummi(satellites)
+        self.__add_constr_fixed_w(pixels, 0)
+
+    def __add_constr_fixed_w(self, pixels: Dict[str, Pixel], value: int) -> None:
+        """Add constraint fixed W."""
+        logger.info("[DETERMINISTIC] DUMMI Add constraint fixed W")
+        for k in pixels.keys():
+            for t in range(self.periods):
+                nameConstraint = f"R_fixed_w_k{k}_t{t}"
+                self.model.addConstr(
+                    self.W[(k, t)] == value,
+                    name=nameConstraint,
+                )
 
     def __add_constr_installation_satellite(
         self, satellites: Dict[str, Satellite]
@@ -334,7 +346,7 @@ class FlexibilityModel:
     def __add_constr_dummi(self, satellites: Dict[str, Satellite]) -> None:
         """Add constraint dumming."""
         logger.info("[DETERMINISTIC] Add constraint dummi")
-        nameConstraint = f"R_Dumming"
+        nameConstraint = "R_Dumming"
         self.model.addConstr(
             quicksum(
                 [
@@ -352,3 +364,8 @@ class FlexibilityModel:
         logger.info("[DETERMINISTIC] Solve model")
         self.model.optimize()
         logger.info("[DETERMINISTIC] Model solved")
+
+    def set_params(self, params: Dict[str, int]) -> None:
+        """Set parameters to model."""
+        for key, item in params.items():
+            self.model.setParam(key, item)
