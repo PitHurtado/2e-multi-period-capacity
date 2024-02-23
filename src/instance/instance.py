@@ -50,7 +50,6 @@ class Instance:
 
         # read the data
         self.satellites: Dict[str, Satellite] = self.__read_satellites()
-        self.scenarios: Dict[str, Scenario] = self.__compute_scenarios()
 
         # continuous approximation
         self.computer_fleet_size = (
@@ -71,6 +70,7 @@ class Instance:
             )
         )
         self.type_of_cost_serving = type_of_cost_serving
+        self.scenarios: Dict[str, Scenario] = self.__compute_scenarios()
 
     def __str__(self):
         return (

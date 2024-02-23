@@ -210,7 +210,7 @@ class FlexibilityModel:
 
         # dummi constraints
         # self.__add_constr_dummi(satellites)
-        self.__add_constr_fixed_w(pixels, 0)
+        # self.__add_constr_fixed_w(pixels, 1)
 
     def __add_constr_fixed_w(self, pixels: Dict[str, Pixel], value: int) -> None:
         """Add constraint fixed W."""
