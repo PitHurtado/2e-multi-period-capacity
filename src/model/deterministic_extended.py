@@ -150,6 +150,7 @@ class FlexibilityModelExtended:
                     for s, satellite in satellites.items()
                     for q in satellite.capacity.keys()
                     for t in range(self.periods)
+                    for n in scenarios.keys()
                 ]
             )
         else:
@@ -261,8 +262,8 @@ class FlexibilityModelExtended:
                             nameConstraint = f"R_Operating_s{s}_q{q}_n{n}_t{t}"
                             q_higher_values = [
                                 q_higher
-                                for q_higher in satellite.capacity.keys()
-                                if q_higher > q
+                                for q_higher, q_higher_value in satellite.capacity.items()
+                                if q_higher_value > q_value
                             ]
                             self.model.addConstr(
                                 quicksum(

@@ -210,7 +210,7 @@ class FlexibilityModel:
 
         # dummi constraints
         # self.__add_constr_dummi(satellites)
-        # self.__add_constr_fixed_w(pixels, 1)
+        # self.__add_constr_fixed_w(pixels, 0)
 
     def __add_constr_fixed_w(self, pixels: Dict[str, Pixel], value: int) -> None:
         """Add constraint fixed W."""
@@ -262,8 +262,8 @@ class FlexibilityModel:
                         nameConstraint = f"R_Operating_s{s}_q{q}_t{t}"
                         q_higher_values = [
                             q_higher
-                            for q_higher in satellite.capacity.keys()
-                            if q_higher > q
+                            for q_higher, q_higher_value in satellite.capacity.items()
+                            if q_higher_value > q_value
                         ]
                         self.model.addConstr(
                             quicksum(
@@ -355,7 +355,7 @@ class FlexibilityModel:
                     for q in satellite.capacity.keys()
                 ]
             )
-            == 0,
+            == 1,
             name=nameConstraint,
         )
 

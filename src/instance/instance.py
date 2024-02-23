@@ -71,6 +71,7 @@ class Instance:
         )
         self.type_of_cost_serving = type_of_cost_serving
         self.scenarios: Dict[str, Scenario] = self.__compute_scenarios()
+        self.__update_satellites()
 
     def __str__(self):
         return (
@@ -106,6 +107,11 @@ class Instance:
             "quantity_vehicles": len(self.vehicles),
             "quantity_scenarios": len(self.scenarios),
         }
+
+    def __update_satellites(self) -> None:
+        """Update the satellites."""
+        for satellite in self.satellites.values():
+            satellite.capacity = self.capacity_satellites
 
     def __read_satellites(self) -> Dict[str, Satellite]:
         """Reads the satellites from the file."""

@@ -16,8 +16,8 @@ if __name__ == "__main__":
 
     # (1.1) Generate instance:
     instance_generated = Experiment(
-        N_evaluation=0, M=10, folder_path=folder_path
-    ).generate_instances()
+        N_evaluation=0, M=1, folder_path=folder_path
+    ).generate_instances(include_expected=True)
     # (1.2) Select instance to solve:
     for i, experiment in enumerate(instance_generated):
         id_experiment = (1 + i) * 100
