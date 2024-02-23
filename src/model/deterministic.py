@@ -199,12 +199,12 @@ class FlexibilityModel:
         fleet_size_required: Dict[str, Any],
     ) -> None:
         """Add constraints to model."""
-        self.__add_constr_installation_satellite(satellites)
 
         if self.type_of_flexibility == 2:
             self.__add_constr_activation_satellite(satellites)
             self.__add_constr_operating_capacity_satellite(satellites)
 
+        self.__add_constr_installation_satellite(satellites)
         self.__add_constr_capacity_satellite(satellites, pixels, fleet_size_required)
         self.__add_constr_demand_satified(satellites, pixels)
 

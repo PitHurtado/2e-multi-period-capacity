@@ -16,21 +16,16 @@ class Experiment:
 
     def __get_combinations(self) -> itertools.product:
         """Return a list of combinations"""
-        N = [20]
+        N = [5 * i for i in range(1, 11)]
         capacity_satellites = [
+            {"2": 2, "6": 6, "12": 12},
+            {"2": 2, "6": 6, "8": 8, "12": 12},
             {"2": 2, "4": 4, "6": 6, "8": 8, "10": 10, "12": 12},
         ]
-        is_continuous_x = [False]
-        type_of_flexibility = [2]
+        is_continuous_x = [True, False]
+        type_of_flexibility = [1, 2]
         alpha = [1.0]
         beta = [1.0]
-
-        # N = [10]
-        # capacity_satellites = [[2, 6, 12]]
-        # is_continuous_x = [False]
-        # type_of_flexibility = [2]
-        # alpha = [1.0]
-        # beta = [1.0]
         return itertools.product(
             N, capacity_satellites, is_continuous_x, type_of_flexibility, alpha, beta
         )

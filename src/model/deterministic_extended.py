@@ -144,9 +144,7 @@ class FlexibilityModelExtended:
         if self.type_of_flexibility == 1:
             self.cost_operating_satellites = quicksum(
                 [
-                    (1 / len(scenarios))
-                    * satellite.cost_operation[q][t]
-                    * self.Y[(s, q)]
+                    satellite.cost_operation[q][t] * self.Y[(s, q)]
                     for s, satellite in satellites.items()
                     for q in satellite.capacity.keys()
                     for t in range(self.periods)
@@ -156,9 +154,7 @@ class FlexibilityModelExtended:
         else:
             self.cost_operating_satellites = quicksum(
                 [
-                    (1 / len(scenarios))
-                    * satellite.cost_operation[q][t]
-                    * self.Z[(s, q, n, t)]
+                    satellite.cost_operation[q][t] * self.Z[(s, q, n, t)]
                     for s, satellite in satellites.items()
                     for q in satellite.capacity.keys()
                     for t in range(self.periods)
@@ -169,8 +165,7 @@ class FlexibilityModelExtended:
         # 3. add cost served from satellite
         self.cost_served_from_satellite = quicksum(
             [
-                (1 / len(scenarios))
-                * scenario.get_cost_serving("satellite")[(s, k, t)]["total"]
+                scenario.get_cost_serving("satellite")[(s, k, t)]["total"]
                 * self.X[(s, k, n, t)]
                 for s in satellites.keys()
                 for n, scenario in scenarios.items()
@@ -182,18 +177,15 @@ class FlexibilityModelExtended:
         # 4. add cost served from dc
         self.cost_served_from_dc = quicksum(
             [
-                (1 / len(scenarios))
-                * scenario.get_cost_serving("dc")[(k, t)]["total"]
-                * self.W[(k, n, t)]
+                scenario.get_cost_serving("dc")[(k, t)]["total"] * self.W[(k, n, t)]
                 for n, scenario in scenarios.items()
                 for k in scenario.pixels.keys()
                 for t in range(self.periods)
             ]
         )
 
-        self.objective = (
-            self.cost_installation_satellites
-            + self.cost_operating_satellites
+        self.objective = self.cost_installation_satellites + (1 / len(scenarios)) * (
+            self.cost_operating_satellites
             + self.cost_served_from_dc
             + self.cost_served_from_satellite
         )
@@ -288,7 +280,6 @@ class FlexibilityModelExtended:
                 for n, scenario in scenarios.items():
                     pixels = scenario.pixels
                     fleet_size_required = scenario.get_fleet_size_required("satellite")
-
                     nameConstraint = f"R_capacity_s{s}_n{n}_t{t}"
                     if self.type_of_flexibility == 2:
                         self.model.addConstr(
@@ -332,8 +323,8 @@ class FlexibilityModelExtended:
     ):
         """Add constraint demand satisfied."""
         logger.info("[DETERMINISTIC] Add constraint demand satisfied")
-        for t in range(self.periods):
-            for n, scenario in scenarios.items():
+        for n, scenario in scenarios.items():
+            for t in range(self.periods):
                 for k in scenario.pixels.keys():
                     nameConstraint = f"R_demand_k{k}_n{n}_t{t}"
                     self.model.addConstr(
