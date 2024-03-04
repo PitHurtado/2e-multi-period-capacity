@@ -67,12 +67,9 @@ class MasterProblem:
         self.θ = dict(
             [
                 (
-                    (n, t),
-                    self.model.addVar(
-                        vtype=GRB.CONTINUOUS, lb=0.0, name=f"θ_n{n}_t{t}"
-                    ),
+                    n,
+                    self.model.addVar(vtype=GRB.CONTINUOUS, lb=0.0, name=f"θ_n{n}"),
                 )
-                for t in range(self.periods)
                 for n in scenarios.keys()
             ]
         )
@@ -84,23 +81,21 @@ class MasterProblem:
         """Compute the lower bound for the second stage cost."""
         LB = {}
         logger.info("[MODEL] Computing lower bounds for the second stage cost")
-        for t in range(self.periods):
-            for n, scenario in self.scenarios.items():
-                LB[(n, t)] = np.sum(
-                    [
-                        np.min(
-                            [
-                                scenario.get_cost_serving("satellite")[(s, k, t)][
-                                    "total"
-                                ]
-                                for s in self.satellites.keys()
-                            ]
-                            + [scenario.get_cost_serving("dc")[(k, t)]["total"]]
-                        )
-                        for k in scenario.pixels.keys()
-                    ]
-                )
-                # LB[(n, t)] = 0
+        for n, scenario in self.scenarios.items():
+            LB[n] = np.sum(
+                [
+                    np.min(
+                        [
+                            scenario.get_cost_serving("satellite")[(s, k, t)]["total"]
+                            for s in self.satellites.keys()
+                        ]
+                        + [scenario.get_cost_serving("dc")[(k, t)]["total"]]
+                    )
+                    for k in scenario.pixels.keys()
+                    for t in range(self.periods)
+                ]
+            )
+            # LB[n] = 0
         logger.info(f"[MODEL] Lower bounds: {LB}")
         return LB
 
@@ -112,17 +107,13 @@ class MasterProblem:
 
         cost_installation_satellites = quicksum(
             [
-                (satellite.cost_fixed[q] / 20) * self.Y[(s, q)]
+                (satellite.cost_fixed[q]) * self.Y[(s, q)]
                 for s, satellite in satellites.items()
                 for q in satellite.capacity.keys()
             ]
         )
         cost_second_stage = (
-            1
-            / (len(scenarios))
-            * quicksum(
-                [self.θ[(n, t)] for t in range(self.periods) for n in scenarios.keys()]
-            )
+            1 / (len(scenarios)) * quicksum([self.θ[n] for n in scenarios.keys()])
         )
 
         total_cost = cost_installation_satellites + cost_second_stage
@@ -149,10 +140,9 @@ class MasterProblem:
             )
 
         # Lower bounds on the second-stage cost:
-        for t in range(self.periods):
-            for n in self.scenarios.keys():
-                if self.LB[(n, t)] > 0:
-                    self.model.addConstr(self.θ[(n, t)] >= self.LB[(n, t)])
+        for n in self.scenarios.keys():
+            if self.LB[n] > 0:
+                self.model.addConstr(self.θ[n] >= self.LB[n])
 
         # dummy constraint
         # this constraint is added to avoid the following error:

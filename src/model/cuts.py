@@ -53,16 +53,15 @@ class Cuts:
         # solve subproblems
         total_subproblem_cost = 0
         new_θ = {}
-        for t in range(Cuts.periods):
-            for n in Cuts.instance.scenarios.keys():
-                logger.info(f"[CUT] Subproblem: {n} - {t}")
-                subproblem_runtime, subproblem_cost = Cuts.SPs[(n, t)].solve_model(
-                    Y, False
-                )
-                Cuts.subproblem_solved += 1
-                new_θ[(n, t)] = subproblem_cost
-                total_subproblem_cost += subproblem_cost
-                Cuts.run_times.append(subproblem_runtime)
+        for n in Cuts.instance.scenarios.keys():
+            logger.info(f"[CUT] Subproblem: {n}")
+            subproblem_runtime, subproblem_cost = Cuts.SPs[n].solve_model(
+                Y, False
+            )
+            Cuts.subproblem_solved += 1
+            new_θ[n] = subproblem_cost
+            total_subproblem_cost += subproblem_cost
+            Cuts.run_times.append(subproblem_runtime)
 
         logger.info(f"[CUT] Subproblems solved: {Cuts.subproblem_solved}")
 
@@ -89,19 +88,18 @@ class Cuts:
 
         # add optimality cuts
         epsilon = 1e-6
-        for t in range(Cuts.periods):
-            for n in Cuts.instance.scenarios.keys():
-                if θ[(n, t)] < new_θ[(n, t)] + epsilon:
-                    act_function = Cuts.get_activation_function(model, Y)
-                    model.cbLazy(
-                        model._θ[(n, t)]
-                        >= (
-                            new_θ[(n, t)]
-                            + (new_θ[(n, t)] - Cuts.LB[(n, t)]) * act_function
-                        )
+        for n in Cuts.instance.scenarios.keys():
+            if θ[n] < new_θ[n] + epsilon:
+                act_function = Cuts.get_activation_function(model, Y)
+                model.cbLazy(
+                    model._θ[n]
+                    >= (
+                        new_θ[n]
+                        + (new_θ[n] - Cuts.LB[n]) * act_function
                     )
+                )
 
-                    Cuts.optimality_cuts += 1
+                Cuts.optimality_cuts += 1
 
     @staticmethod
     def get_activation_function(model, Y):
@@ -134,10 +132,9 @@ class Cuts:
     def __create_subproblems(self, instance: Instance) -> Dict[Any, SubProblem]:
         """Create the subproblems"""
         subproblems = {}
-        for t in range(instance.periods):
-            for n in instance.scenarios.keys():
-                scenario = instance.scenarios[n]
-                subproblems[(n, t)] = SubProblem(instance, t, scenario)
+        for n in instance.scenarios.keys():
+            scenario = instance.scenarios[n]
+            subproblems[n] = SubProblem(instance, instance.periods, scenario)
         return subproblems
 
     @staticmethod

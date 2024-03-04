@@ -6,6 +6,9 @@ from typing import Dict, List
 
 from src.classes import Pixel, Satellite, Vehicle
 from src.constants import PATH_SAMPLING_SCENARIO
+from src.continuous_approximation.continuous_approximation import (
+    ContinuousApproximation,
+)
 from src.continuous_approximation.fleet_size import (
     ContinuousApproximationConfig,
     get_cost_from_continuous_approximation,
@@ -29,6 +32,7 @@ class Instance:
         periods: int,
         N: int,
         is_evaluation: bool,
+        type_of_cost_serving: int = 2,
     ):  # pylint: disable=too-many-arguments
         self.id_instance = id_instance
 
@@ -43,16 +47,31 @@ class Instance:
         self.is_evaluation = is_evaluation
 
         self.vehicles: Dict[str, Vehicle] = self.__read_vehicles()
-        # continuous approximation
-        self.computer_fleet_size = ContinuousApproximationConfig(
-            periods=periods,
-            small_vehicle=self.vehicles["small"],
-            large_vehicle=self.vehicles["large"],
-        )
 
         # read the data
         self.satellites: Dict[str, Satellite] = self.__read_satellites()
+
+        # continuous approximation
+        self.computer_fleet_size = (
+            ContinuousApproximationConfig(
+                periods=periods,
+                small_vehicle=self.vehicles["small"],
+                large_vehicle=self.vehicles["large"],
+            )
+            if type_of_cost_serving == 1
+            else ContinuousApproximation(
+                periods=periods,
+                satellites=self.satellites,
+                matrixes={
+                    "dc": Data.load_matrix_from_dc()["distance"],
+                    "satellite": Data.load_matrix_from_satellite()["distance"],
+                },
+                vehicles=self.vehicles,
+            )
+        )
+        self.type_of_cost_serving = type_of_cost_serving
         self.scenarios: Dict[str, Scenario] = self.__compute_scenarios()
+        self.__update_satellites()
 
     def __str__(self):
         return (
@@ -89,6 +108,11 @@ class Instance:
             "quantity_scenarios": len(self.scenarios),
         }
 
+    def __update_satellites(self) -> None:
+        """Update the satellites."""
+        for satellite in self.satellites.values():
+            satellite.capacity = self.capacity_satellites
+
     def __read_satellites(self) -> Dict[str, Satellite]:
         """Reads the satellites from the file."""
         try:
@@ -123,19 +147,27 @@ class Instance:
             matrix_dc_pixels = Data.load_matrix_from_dc()
 
             # compute fleet size required from satellite to pixel
-            fleet_size_from_satellites = (
-                self.computer_fleet_size.calculate_avg_fleet_size_from_satellites(
-                    pixels=pixels,
-                    distances_line_haul=matrix_satellite_pixels["distance"],
-                    satellites=self.satellites,
+            if self.type_of_cost_serving == 1:
+                fleet_size_from_satellites = (
+                    self.computer_fleet_size.calculate_avg_fleet_size_from_satellites(
+                        pixels=pixels,
+                        distances_line_haul=matrix_satellite_pixels["distance"],
+                        satellites=self.satellites,
+                    )
                 )
-            )
-            fleet_size_from_dc = (
-                self.computer_fleet_size.calculate_avg_fleet_size_from_dc(
-                    pixels=pixels,
-                    distances_line_haul=matrix_dc_pixels["distance"],
+                fleet_size_from_dc = (
+                    self.computer_fleet_size.calculate_avg_fleet_size_from_dc(
+                        pixels=pixels,
+                        distances_line_haul=matrix_dc_pixels["distance"],
+                    )
                 )
-            )
+            else:
+                fleet_size_from_satellites = (
+                    self.computer_fleet_size.get_average_fleet_size(pixels, "satellite")
+                )
+                fleet_size_from_dc = self.computer_fleet_size.get_average_fleet_size(
+                    pixels, "dc"
+                )
         except FileNotFoundError as error:
             logger.error(f"[calculate fleet size required] File not found: {error}")
             raise error
@@ -168,17 +200,25 @@ class Instance:
             matrix_satellite_pixels = Data.load_matrix_from_satellite()
             matrix_dc_pixels = Data.load_matrix_from_dc()
 
-            costs = get_cost_from_continuous_approximation(
-                pixels=pixels,
-                satellites=self.satellites,
-                vehicles=self.vehicles,
-                periods=self.periods,
-                fleet_size_required=fleet_size_required,
-                distance_line_haul={
-                    "satellite": matrix_satellite_pixels["distance"],
-                    "dc": matrix_dc_pixels["distance"],
-                },
-            )
+            if self.type_of_cost_serving == 1:
+                costs = get_cost_from_continuous_approximation(
+                    pixels=pixels,
+                    satellites=self.satellites,
+                    vehicles=self.vehicles,
+                    periods=self.periods,
+                    fleet_size_required=fleet_size_required,
+                    distance_line_haul={
+                        "satellite": matrix_satellite_pixels["distance"],
+                        "dc": matrix_dc_pixels["distance"],
+                    },
+                )
+            else:
+                costs = {
+                    "dc": self.computer_fleet_size.get_cost_serve_pixel(pixels, "dc"),
+                    "satellite": self.computer_fleet_size.get_cost_serve_pixel(
+                        pixels, "satellite"
+                    ),
+                }
         except Exception as error:
             logger.error(f"[calculate costs] File not found: {error}")
             raise error

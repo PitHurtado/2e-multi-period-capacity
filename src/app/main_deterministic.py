@@ -1,5 +1,7 @@
 """Main module for the SAA application."""
 import json
+import logging
+from datetime import date
 
 from src.instance.instance import Instance
 from src.model.deterministic import FlexibilityModel
@@ -9,11 +11,11 @@ if __name__ == "__main__":
     logger.info("[MAIN DETERMINISTIC] Starting deterministic model")
 
     # (1) Generate instance:
-    folder_path = "./data/results/deterministic/"
+    FOLDER_PATH = "./data/results/deterministic/"
     logger.info("[MAIN DETERMINISTIC] Generating instances")
     instance_to_solve: Instance = Instance(
-        id_instance="expected",
-        capacity_satellites={"2": 2, "4": 4, "6": 6, "8": 8},
+        id_instance=f"expected_normal_{date.today()}",  # id_instance
+        capacity_satellites={"2": 2, "4": 4, "6": 6, "8": 8, "10": 10, "12": 12},
         is_continuous_x=False,
         alpha=0.5,
         beta=0.5,
@@ -27,11 +29,22 @@ if __name__ == "__main__":
 
     # (2) Create model:
     logger.info(
-        f"[MAIN DETERMINISTIC] Instance generated - instance_to_solve {instance_to_solve}"
+        f"[MAIN DETERMINISTIC] Instance generated - instance_to_solve \n{instance_to_solve}"
     )
     model = FlexibilityModel(instance_to_solve)
     model.build()
+    params = {
+        "TimeLimit": 120,
+        "MIPGap": 0.005,
+    }
+    logger.info(f"[MAIN DETERMINISTIC] Model run with params {params} - solving...")
+    # (3) Solve the model:
+    logger.disabled = True
+    logging.disable(logging.CRITICAL)
+    model.set_params(params)
     model.solve()
+    logger.disabled = False
+    logging.disable(logging.NOTSET)
 
     # (3) Save results:
     Y_solution = {str(keys): value.X for keys, value in model.model._Y.items()}
@@ -47,7 +60,7 @@ if __name__ == "__main__":
     Y_solution["scenarios"] = instance_to_solve.get_info()
 
     path_file_output = (
-        folder_path + f"deterministic_{instance_to_solve.id_instance}.json"
+        FOLDER_PATH + f"deterministic_{instance_to_solve.id_instance}.json"
     )
     with open(path_file_output, "w") as file:
         file.write(json.dumps(Y_solution, indent=4))

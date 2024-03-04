@@ -17,9 +17,9 @@ class ContinuousApproximationConfig:
         small_vehicle: Vehicle,
         large_vehicle: Vehicle,
     ) -> None:
-        self.periods = periods
-        self.small_vehicle = small_vehicle
-        self.large_vehicle = large_vehicle
+        self.periods: int = periods
+        self.small_vehicle: Vehicle = small_vehicle
+        self.large_vehicle: Vehicle = large_vehicle
 
     def __avg_fleet_size(
         self, pixel: Pixel, vehicle: Vehicle, t: int, distance: float
@@ -31,7 +31,8 @@ class ContinuousApproximationConfig:
             or pixel.demand_by_period[t] <= 0
         ):
             logger.warning(
-                f"[CA] Pixel {pixel.id_pixel} in period {t} has no demand or no stops or no drops"
+                f"[CA] Pixel {pixel.id_pixel} in period {t} "
+                f"has no demand or no stops or no drops"
             )
             return {
                 "fleet_size": 0,
@@ -51,7 +52,7 @@ class ContinuousApproximationConfig:
 
         # time services
         time_services = (
-            vehicle.time_fixed + vehicle.time_service * pixel.drop_by_period[t]
+            vehicle.time_set_up + vehicle.time_service * pixel.drop_by_period[t]
         )
 
         # time intra stop
@@ -65,15 +66,17 @@ class ContinuousApproximationConfig:
 
         # time preparing
         time_preparing_dispatch = (
-            vehicle.time_dispatch
-            + effective_vehicle_capacity * pixel.drop_by_period[t] * vehicle.time_load
+            vehicle.time_prep
+            + effective_vehicle_capacity
+            * pixel.drop_by_period[t]
+            * vehicle.time_loading_per_item
         )
 
         # time line_haul
-        time_line_haul = 2 * (distance * vehicle.k / vehicle.speed_line_haul)
+        time_line_haul = 2 * (distance * vehicle.k / vehicle.speed_linehaul)
 
         # number of fully loaded tours
-        beta = vehicle.max_time_services / (
+        beta = vehicle.t_max / (
             avg_tour_time + time_preparing_dispatch + time_line_haul
         )
         avg_time = avg_tour_time + time_preparing_dispatch + time_line_haul
@@ -103,7 +106,7 @@ class ContinuousApproximationConfig:
         satellites: Dict[str, Satellite],
     ) -> Dict[Any, float]:
         """Calculate the average fleet size for a pixel in a period of time"""
-        logger.info("[CA] Estimation of fleet size running for satellites")
+        # logger.info("[CA] Estimation of fleet size running for satellites")
         fleet_size = dict(
             [
                 (
@@ -125,7 +128,7 @@ class ContinuousApproximationConfig:
         distances_line_haul: Dict[str, float],
     ) -> Dict[Any, float]:
         """Calculate the average fleet size for a pixel in a period of time"""
-        logger.info("[CA] Estimation of fleet size running for DC")
+        # logger.info("[CA] Estimation of fleet size running for DC")
         fleet_size = dict(
             [
                 (

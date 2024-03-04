@@ -16,19 +16,16 @@ class Experiment:
 
     def __get_combinations(self) -> itertools.product:
         """Return a list of combinations"""
-        N = [2]
-        capacity_satellites = [[2, 6, 12]]
-        is_continuous_x = [False]
+        N = [5 * i for i in range(1, 11)]
+        capacity_satellites = [
+            {"2": 2, "6": 6, "12": 12},
+            {"2": 2, "6": 6, "8": 8, "12": 12},
+            {"2": 2, "4": 4, "6": 6, "8": 8, "10": 10, "12": 12},
+        ]
+        is_continuous_x = [True, False]
         type_of_flexibility = [1, 2]
-        alpha = [0.1]
-        beta = [0.1]
-        # TODO add more combinations
-        # N = [10, 20, 30, 40, 50]
-        # capacity_satellites = [[2, 6, 12], [2, 4, 6, 8], [2, 4, 6, 8, 12]]
-        # is_continuous_x = [True, False]
-        # type_of_flexibility = [1, 2]
-        # alpha = [0.1, 0.5]
-        # beta = [0.1, 0.5]
+        alpha = [1.0]
+        beta = [1.0]
         return itertools.product(
             N, capacity_satellites, is_continuous_x, type_of_flexibility, alpha, beta
         )
@@ -61,9 +58,12 @@ class Experiment:
             )
         return info_combinations
 
-    def generate_instances(self, debug: bool = False) -> List[Dict[str, Any]]:
+    def generate_instances(
+        self, include_expected: bool, debug: bool = False
+    ) -> List[Dict[str, Any]]:
         """Generate instances for training and evaluation. Return a list of instances."""
         combinations = self.__get_combinations()
+        n_combinations = len(list(self.__get_combinations()))
         experiments = []
         index = 0
         for combination in combinations:
@@ -99,8 +99,27 @@ class Experiment:
                     )
                 instances_train[id_instance] = instance
             logger.info(
-                f"[EXPERIMENT] Generated {len(instances_train)} instances for training"
+                f"[EXPERIMENT] Generated {len(instances_train)} instances for training - M {self.M}"
             )
+            if include_expected:
+                # expected instances
+                id_instance = f"id_{index}_expected"
+                instance_expected = Instance(
+                    id_instance=id_instance,
+                    capacity_satellites=capacity_satellites,
+                    is_continuous_x=is_continuous_x,
+                    alpha=alpha,
+                    beta=beta,
+                    type_of_flexibility=type_of_flexibility,
+                    periods=12,
+                    N=self.N_evaluation,
+                    is_evaluation=True,
+                )
+                # set scenario expected
+                instance_expected.scenarios = {
+                    "expected": instance_expected.get_scenario_expected()
+                }
+                instances_train[id_instance] = instance_expected
 
             # evaluation instances
             id_instance = f"id_{index}_testing"
@@ -127,6 +146,9 @@ class Experiment:
                 }
             )
             index += 1
+            logger.info(
+                f"[EXPERIMENT] Generated instance {index} of {n_combinations} combinations"
+            )
         logger.info(f"[EXPERIMENT] Generated {len(experiments)} experiments")
         return experiments
 
